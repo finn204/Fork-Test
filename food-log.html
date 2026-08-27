@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="lock.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<title>Food · Dashboard</title>
+
+<script src="/api/config"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+
+<style>
+:root {
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger:  #FF6B6B;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: #050506;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  padding: max(28px, env(safe-area-inset-top)) 20px 60px;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(circle at 82% 14%, rgba(224, 118, 88, 0.16), transparent 45%),
+    radial-gradient(circle at 18% 90%, rgba(180, 180, 200, 0.06), transparent 50%);
+  filter: blur(40px);
+  pointer-events: none;
+  z-index: -2;
+  animation: drift 36s ease-in-out infinite alternate;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px;
+  pointer-events: none;
+  z-index: -1;
+}
+@keyframes drift {
+  0%   { transform: translate3d(0,0,0); }
+  100% { transform: translate3d(-22px, 14px, 0); }
+}
+
+.page { max-width: 1100px; margin: 0 auto; }
+
+.dash-title {
+  margin: 0 0 14px;
+  font-size: 28px; font-weight: 700;
+  letter-spacing: -0.025em;
+  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+
+.section { margin-top: 8px; }
+.section-title {
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary);
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 12px;
+}
+.section-title::before {
+  content: ''; width: 18px; height: 1px;
+  background: var(--text-tertiary); opacity: 0.6;
+}
+.section-title::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent);
+}
+
+.gm-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 14px;
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  overflow: hidden;
+}
+
+.gm-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px; margin-bottom: 14px;
+}
+.gm-header-left { display: flex; flex-direction: column; }
+.gm-eyebrow {
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary); margin-bottom: 6px;
+}
+.gm-progress-row { display: flex; align-items: baseline; gap: 6px; }
+.gm-progress-num {
+  font-size: 42px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.045em; color: var(--text-primary); line-height: 1;
+}
+.gm-progress-label {
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.10em; text-transform: uppercase;
+  color: var(--text-tertiary); margin-left: 4px;
+}
+.gm-streak {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 12px; border-radius: 999px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  color: var(--text-tertiary);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.10em; text-transform: uppercase;
+}
+
+.goal-list { list-style: none; margin: 0; padding: 0; }
+.empty-state {
+  text-align: center; font-size: 12px; font-style: italic;
+  color: var(--text-tertiary); padding: 14px 0;
+}
+.gm-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; margin-bottom: 6px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  transition: background 0.2s;
+}
+.gm-row:hover { background: rgba(255,255,255,0.06); }
+.gm-row-emoji { font-size: 18px; flex-shrink: 0; }
+.gm-row-body { flex: 1; min-width: 0; }
+.gm-row-name {
+  font-size: 14px; color: var(--text-primary);
+  outline: none; border-radius: 4px; padding: 2px 4px; margin: -2px -4px;
+}
+.gm-row-name[contenteditable="true"] {
+  outline: 1px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.28);
+}
+.gm-row-meta {
+  font-size: 11px; color: var(--text-tertiary); margin-top: 2px;
+}
+.goal-delete {
+  border: 0; background: transparent; color: var(--text-tertiary);
+  font-size: 18px; cursor: pointer; padding: 0 4px;
+  opacity: 0.5; transition: opacity 0.2s, color 0.2s;
+  flex-shrink: 0;
+}
+.gm-row:hover .goal-delete { opacity: 1; }
+.goal-delete:hover { color: var(--danger); }
+
+.gm-input-wrap {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  margin-top: 14px; padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.gm-input {
+  flex: 1; min-width: 160px;
+  padding: 11px 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; background: rgba(0,0,0,0.28);
+  color: var(--text-primary);
+  font-family: inherit; font-size: 14px; outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+.gm-input::placeholder { color: var(--text-tertiary); }
+.gm-input:focus { border-color: rgba(255,255,255,0.28); background: rgba(0,0,0,0.36); }
+
+.gm-add {
+  padding: 11px 20px; border: 0; border-radius: 12px;
+  background: linear-gradient(180deg, #FFFFFF 0%, #E8E5DD 100%);
+  color: #0A0A0B; font-family: inherit; font-size: 13px; font-weight: 700;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.9),
+    0 2px 8px rgba(0,0,0,0.35),
+    0 8px 22px rgba(0,0,0,0.25);
+  transition: transform 0.1s, filter 0.15s;
+}
+.gm-add:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.gm-add:active { transform: translateY(0); }
+
+@media (max-width: 480px) {
+  body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
+  .gm-card { padding: 16px; }
+  .gm-progress-num { font-size: 36px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1 class="dash-title">Food</h1>
+
+  <div class="section">
+    <div class="section-title">Today</div>
+    <div class="gm-card">
+      <div class="gm-header">
+        <div class="gm-header-left">
+          <div class="gm-eyebrow">Logged Today</div>
+          <div class="gm-progress-row">
+            <span class="gm-progress-num" id="todayCount">0</span>
+            <span class="gm-progress-label">meals / items</span>
+          </div>
+        </div>
+        <span class="gm-streak" id="lastEaten">Nothing logged yet</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Log</div>
+    <div class="gm-card">
+      <ul class="goal-list" id="itemList"></ul>
+
+      <div class="gm-input-wrap">
+        <input class="gm-input" id="itemInput" type="text"
+               placeholder="What did you eat or drink?" autocomplete="off">
+        <input class="gm-input" id="noteInput" type="text"
+               placeholder="Note (optional)" autocomplete="off" style="max-width:160px;">
+        <button class="gm-add" id="itemAdd" type="button">Add</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.page -->
+
+<script>
+(function () {
+  'use strict';
+
+  const STORE_KEY = 'food:logs';
+
+  const listEl   = document.getElementById('itemList');
+  const inputEl  = document.getElementById('itemInput');
+  const noteEl   = document.getElementById('noteInput');
+  const addEl    = document.getElementById('itemAdd');
+  const countEl  = document.getElementById('todayCount');
+  const lastEl   = document.getElementById('lastEaten');
+
+  function load() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; }
+    catch (e) { return []; }
+  }
+  function save(items) {
+    localStorage.setItem(STORE_KEY, JSON.stringify(items));
+  }
+  function todayKey(ts) {
+    const d = new Date(ts);
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function fmtTime(ts) {
+    return new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+  function fmtDate(ts) {
+    return new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+
+  function render() {
+    const items = load().slice().sort(function (a, b) { return b.ts - a.ts; });
+    listEl.innerHTML = '';
+
+    const today = todayKey(Date.now());
+    const todays = items.filter(function (i) { return todayKey(i.ts) === today; });
+    countEl.textContent = todays.length;
+    lastEl.textContent = items.length ? ('Last: ' + items[0].n + ' · ' + fmtTime(items[0].ts)) : 'Nothing logged yet';
+
+    if (items.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'empty-state';
+      li.textContent = 'Nothing logged yet — add what you ate or drank below.';
+      listEl.appendChild(li);
+      return;
+    }
+
+    items.forEach(function (item) {
+      const li = document.createElement('li');
+      li.className = 'gm-row';
+
+      const emoji = document.createElement('span');
+      emoji.className = 'gm-row-emoji';
+      emoji.textContent = '🍽️';
+
+      const body = document.createElement('div');
+      body.className = 'gm-row-body';
+
+      const name = document.createElement('div');
+      name.className = 'gm-row-name';
+      name.textContent = item.n;
+      name.contentEditable = 'true';
+      name.addEventListener('blur', function () {
+        const list = load();
+        const target = list.find(function (x) { return x.id === item.id; });
+        if (target) { target.n = name.textContent.trim(); save(list); }
+      });
+      name.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); name.blur(); }
+      });
+
+      const meta = document.createElement('div');
+      meta.className = 'gm-row-meta';
+      meta.textContent = fmtDate(item.ts) + ' · ' + fmtTime(item.ts) + (item.note ? ' · ' + item.note : '');
+
+      body.append(name, meta);
+
+      const del = document.createElement('button');
+      del.className = 'goal-delete';
+      del.type = 'button';
+      del.textContent = '×';
+      del.addEventListener('click', function () {
+        const list = load().filter(function (x) { return x.id !== item.id; });
+        save(list); render();
+      });
+
+      li.append(emoji, body, del);
+      listEl.appendChild(li);
+    });
+  }
+
+  function add() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+    const list = load();
+    list.push({
+      id: 'f' + Date.now() + Math.floor(Math.random() * 1000),
+      n: text,
+      note: noteEl.value.trim(),
+      ts: Date.now()
+    });
+    save(list);
+    inputEl.value = '';
+    noteEl.value = '';
+    render();
+  }
+  addEl.addEventListener('click', add);
+  inputEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') add(); });
+  noteEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') add(); });
+
+  render();
+
+  if (window.initCloudSync) {
+    window.initCloudSync({
+      appKey: 'food',
+      syncedKeys: [STORE_KEY],
+      onApplied: render
+    });
+  }
+})();
+</script>
+
+</body>
+</html>
