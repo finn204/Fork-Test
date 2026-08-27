@@ -224,100 +224,129 @@ body::after {
     return isNaN(n) ? (fallback || 0) : n;
   }
 
+  function fmtDate(d) {
+    if (!d) return '';
+    return new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+  function timeAgo(ts) {
+    if (!ts) return '';
+    const days = Math.floor((Date.now() - ts) / 86400000);
+    if (days <= 0) return 'today';
+    if (days === 1) return 'yesterday';
+    if (days < 7) return days + 'd ago';
+    return Math.floor(days / 7) + 'w ago';
+  }
+
   function render(row) {
     const contentEl = document.getElementById('content');
     const refreshedEl = document.getElementById('refreshedAt');
 
-    if (!row || !row.kpi) {
-      contentEl.innerHTML = '<div class="empty-state">No business data yet — ask Claude to pull it from your Google Sheet.</div>';
+    if (!row || (!row.clients && !row.bank)) {
+      contentEl.innerHTML = '<div class="empty-state">No business data yet — ask Claude to pull it from your bank and Stripe.</div>';
       refreshedEl.textContent = '';
       return;
     }
 
-    const k = row.kpi;
-    refreshedEl.textContent = row.refreshed_at
-      ? 'Last refreshed ' + new Date(row.refreshed_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    refreshedEl.textContent = row.clients_refreshed_at
+      ? 'Client data checked ' + new Date(row.clients_refreshed_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
       : '';
 
     contentEl.innerHTML =
-      '<div class="section">' +
-        '<div class="section-title">This Month</div>' +
-        '<div class="gm-card">' +
-          '<div class="gm-header">' +
-            '<div class="gm-header-left">' +
-              '<div class="gm-eyebrow">MRR Added</div>' +
-              '<div class="gm-progress-row">' +
-                '<span class="gm-progress-num">' + fmtMoney(k.mrrAddedMonth) + '</span>' +
-              '</div>' +
-            '</div>' +
-            '<span class="gm-streak ' + (isNegative(k.onTrackToGoal) ? 'bad' : 'good') + '">' +
-              (k.onTrackToGoal != null ? (isNegative(k.onTrackToGoal) ? '⚠ ' : '✓ ') + fmtPct(k.onTrackToGoal) + ' to goal' : 'On track: —') +
-            '</span>' +
-          '</div>' +
-          '<div class="stat-grid">' +
-            '<div class="stat"><div class="stat-num good">' + (k.clientsSoldMonth != null ? k.clientsSoldMonth : '—') + '</div><div class="stat-label">Clients Sold</div></div>' +
-            '<div class="stat"><div class="stat-num bad">' + (k.clientsLostMonth != null ? k.clientsLostMonth : '—') + '</div><div class="stat-label">Clients Lost</div></div>' +
-            '<div class="stat"><div class="stat-num">' + fmtMoney(k.salaryIncreaseMonth) + '</div><div class="stat-label">Salary Increase</div></div>' +
-            '<div class="stat"><div class="stat-num">' + (k.numberOfClients != null ? k.numberOfClients : '—') + '</div><div class="stat-label">Total Clients</div></div>' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
-
-      '<div class="section">' +
-        '<div class="section-title">This Week</div>' +
-        '<div class="gm-card">' +
-          '<div class="stat-grid">' +
-            '<div class="stat"><div class="stat-num good">' + (k.clientsSoldWeek != null ? k.clientsSoldWeek : '—') + '</div><div class="stat-label">Clients Sold</div></div>' +
-            '<div class="stat"><div class="stat-num bad">' + (k.clientsLostWeek != null ? k.clientsLostWeek : '—') + '</div><div class="stat-label">Clients Lost</div></div>' +
-            '<div class="stat"><div class="stat-num">' + fmtMoney(k.mrrAddedWeek) + '</div><div class="stat-label">MRR Added</div></div>' +
-            '<div class="stat"><div class="stat-num">' + fmtMoney(k.salaryIncreaseWeek) + '</div><div class="stat-label">Salary Increase</div></div>' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
-
-      renderClientsSection(row.clients, row.clients_refreshed_at) +
-
+      renderOverviewSection(row.clients) +
+      renderSoldSection(row.clients, row.sales) +
+      renderRiskSection(row.clients, row.churn) +
       renderBankSection(row.bank, row.bank_refreshed_at);
   }
 
-  function renderClientsSection(c, refreshedAt) {
+  function renderOverviewSection(c) {
     if (!c) return '';
-    const asOf = refreshedAt ? new Date(refreshedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
-    const solid = (c.stripePaid || 0) + (c.anzConfirmed || 0);
-
-    let staleRows = '';
-    (c.staleList || []).forEach(function (s) {
-      staleRows +=
-        '<div class="gm-row">' +
-          '<div class="gm-row-body"><div class="gm-row-name">' + s.name + '</div>' +
-          '<div class="gm-row-meta">' + (s.monthly ? '$' + s.monthly + '/mo &middot; ' : '') + 'last paid ' + (s.lastDeposit || 'unknown') + '</div></div>' +
-        '</div>';
-    });
+    const sr = c.stripeReported || {};
+    const anzMrr = c.anzMonthlyRevenue || 0;
+    const totalMrr = (sr.mrr || 0) + anzMrr;
+    const totalClients = (sr.activeCount || 0) + (c.anzActiveCount || 0);
 
     return (
       '<div class="section">' +
-        '<div class="section-title">Active Paying Clients' + (asOf ? ' (checked ' + asOf + ')' : '') + '</div>' +
+        '<div class="section-title">Overview</div>' +
         '<div class="gm-card">' +
           '<div class="gm-header">' +
             '<div class="gm-header-left">' +
-              '<div class="gm-eyebrow">Confirmed Active</div>' +
-              '<div class="gm-progress-row"><span class="gm-progress-num good">' + solid + '</span></div>' +
+              '<div class="gm-eyebrow">Total Monthly Recurring Revenue</div>' +
+              '<div class="gm-progress-row"><span class="gm-progress-num good">' + fmtMoney(totalMrr) + '</span></div>' +
             '</div>' +
-            '<span class="gm-streak">' + (c.anzStaleCount || 0) + ' flagged stale</span>' +
+            '<span class="gm-streak">' + totalClients + ' active clients</span>' +
           '</div>' +
           '<div class="stat-grid">' +
-            '<div class="stat"><div class="stat-num good">' + (c.stripePaid || 0) + '</div><div class="stat-label">Stripe &mdash; Paid</div></div>' +
-            '<div class="stat"><div class="stat-num">' + (c.stripeRetrying || 0) + '</div><div class="stat-label">Stripe &mdash; Retrying</div></div>' +
-            '<div class="stat"><div class="stat-num good">' + (c.anzConfirmed || 0) + '</div><div class="stat-label">ANZ &mdash; Confirmed</div></div>' +
-            '<div class="stat"><div class="stat-num bad">' + (c.anzStaleCount || 0) + '</div><div class="stat-label">ANZ &mdash; Stale</div></div>' +
+            '<div class="stat"><div class="stat-num good">' + fmtMoney(sr.mrr) + '</div><div class="stat-label">Stripe MRR' + (sr.note ? ' *' : '') + '</div></div>' +
+            '<div class="stat"><div class="stat-num">' + (sr.activeCount != null ? sr.activeCount : '—') + '</div><div class="stat-label">Stripe Clients' + (sr.note ? ' *' : '') + '</div></div>' +
+            '<div class="stat"><div class="stat-num good">' + fmtMoney(anzMrr) + '</div><div class="stat-label">ANZ MRR (verified)</div></div>' +
+            '<div class="stat"><div class="stat-num">' + (c.anzActiveCount != null ? c.anzActiveCount : '—') + '</div><div class="stat-label">ANZ Clients (verified)</div></div>' +
           '</div>' +
+          (sr.note ? '<div class="progress-caption" style="margin-top:12px;">* ' + sr.note + '</div>' : '') +
         '</div>' +
-        (staleRows ? (
-          '<div class="gm-card">' +
-            '<div class="gm-eyebrow" style="margin-bottom:10px;">Marked PAID but no deposit in 45+ days</div>' +
-            staleRows +
-          '</div>'
-        ) : '') +
+      '</div>'
+    );
+  }
+
+  function renderSoldSection(c, sales) {
+    const auto = (c && c.newThisWeek) || [];
+    const manual = sales || [];
+    const merged = auto.map(function (a) {
+      return { name: a.name, amount: a.amount, channel: a.channel, ts: new Date(a.firstSeen).getTime(), source: 'bank' };
+    }).concat(manual.map(function (s) {
+      return { name: s.name, amount: s.mrr, channel: s.channel, ts: s.ts, note: s.note, source: 'logged' };
+    }));
+    merged.sort(function (a, b) { return b.ts - a.ts; });
+
+    let rows = '';
+    if (merged.length === 0) {
+      rows = '<div class="empty-state">Nothing new detected this week yet. Tell me when you close a deal and I\'ll add it here.</div>';
+    } else {
+      merged.forEach(function (m) {
+        rows +=
+          '<div class="gm-row">' +
+            '<span class="gm-row-emoji" style="font-size:18px;margin-right:2px;">🎉</span>' +
+            '<div class="gm-row-body"><div class="gm-row-name">' + m.name + '</div>' +
+            '<div class="gm-row-meta">' + (m.channel || '') + (m.amount ? ' &middot; $' + m.amount + '/mo' : '') + ' &middot; ' + timeAgo(m.ts) + (m.note ? ' &middot; ' + m.note : '') + '</div></div>' +
+          '</div>';
+      });
+    }
+
+    return (
+      '<div class="section">' +
+        '<div class="section-title">Sold This Week</div>' +
+        '<div class="gm-card">' + rows + '</div>' +
+      '</div>'
+    );
+  }
+
+  function renderRiskSection(c, churn) {
+    const stale = (c && c.anzStaleList) || [];
+    const manual = churn || [];
+
+    let rows = '';
+    stale.forEach(function (s) {
+      rows +=
+        '<div class="gm-row">' +
+          '<div class="gm-row-body"><div class="gm-row-name">' + s.name + '</div>' +
+          '<div class="gm-row-meta">was ~$' + s.avgAmount + '/mo via ANZ &middot; last paid ' + fmtDate(s.lastSeen) + ' (' + s.daysSinceLast + 'd ago)</div></div>' +
+          '<span class="gm-streak bad" style="flex-shrink:0;">stopped paying</span>' +
+        '</div>';
+    });
+    manual.forEach(function (m) {
+      rows +=
+        '<div class="gm-row">' +
+          '<div class="gm-row-body"><div class="gm-row-name">' + m.name + '</div>' +
+          '<div class="gm-row-meta">' + (m.channel || '') + (m.mrr ? ' &middot; $' + m.mrr + '/mo' : '') + ' &middot; ' + timeAgo(m.ts) + (m.note ? ' &middot; ' + m.note : '') + '</div></div>' +
+          '<span class="gm-streak bad" style="flex-shrink:0;">churned</span>' +
+        '</div>';
+    });
+    if (!rows) rows = '<div class="empty-state">Nothing flagged — everyone tracked via ANZ has paid recently.</div>';
+
+    return (
+      '<div class="section">' +
+        '<div class="section-title">At Risk / Churn Watch</div>' +
+        '<div class="gm-card">' + rows + '</div>' +
       '</div>'
     );
   }
