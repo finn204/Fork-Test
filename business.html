@@ -295,7 +295,56 @@ body::after {
           '<div class="progress-track"><div class="progress-fill" style="width:' + goalPct + '%"></div></div>' +
           '<div class="progress-caption"><span>' + (k.salary != null ? ('Salary: ' + fmtMoney(k.salary)) : '') + '</span><span>' + Math.round(goalPct) + '%</span></div>' +
         '</div>' +
-      '</div>';
+      '</div>' +
+
+      renderBankSection(row.bank, row.bank_refreshed_at);
+  }
+
+  function renderBankSection(bank, refreshedAt) {
+    if (!bank || !bank.totals) return '';
+    const t = bank.totals;
+    const asOf = refreshedAt ? new Date(refreshedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
+
+    let monthRows = '';
+    const months = Object.keys(bank.monthly || {}).sort().reverse();
+    months.forEach(function (m) {
+      const d = bank.monthly[m];
+      const net = d.stripeIn + d.otherIn - d.out;
+      const label = new Date(m + '-01').toLocaleDateString([], { month: 'short', year: 'numeric' });
+      monthRows +=
+        '<div class="gm-row">' +
+          '<div class="gm-row-body"><div class="gm-row-name">' + label + '</div>' +
+          '<div class="gm-row-meta">In ' + fmtMoney(d.stripeIn + d.otherIn) + ' &middot; Out ' + fmtMoney(d.out) + '</div></div>' +
+          '<div class="stat-num ' + (net >= 0 ? 'good' : 'bad') + '" style="font-size:16px;">' + (net >= 0 ? '+' : '') + fmtMoney(net) + '</div>' +
+        '</div>';
+    });
+
+    return (
+      '<div class="section">' +
+        '<div class="section-title">Cash Flow &mdash; Last 6 Months' + (asOf ? ' (bank data as of ' + asOf + ')' : '') + '</div>' +
+        '<div class="gm-card">' +
+          '<div class="gm-header">' +
+            '<div class="gm-header-left">' +
+              '<div class="gm-eyebrow">Net</div>' +
+              '<div class="gm-progress-row"><span class="gm-progress-num ' + (t.net >= 0 ? 'good' : 'bad') + '">' + (t.net >= 0 ? '+' : '') + fmtMoney(t.net) + '</span></div>' +
+            '</div>' +
+            '<span class="gm-streak">' + fmtMoney(t.totalIn) + ' in &middot; ' + fmtMoney(t.totalOut) + ' out</span>' +
+          '</div>' +
+          '<div class="stat-grid">' +
+            '<div class="stat"><div class="stat-num good">' + fmtMoney(t.stripeRevenue) + '</div><div class="stat-label">Stripe Revenue</div></div>' +
+            '<div class="stat"><div class="stat-num good">' + fmtMoney(t.otherIncome) + '</div><div class="stat-label">Bank-Transfer Income</div></div>' +
+            '<div class="stat"><div class="stat-num bad">' + fmtMoney(t.salaryOut) + '</div><div class="stat-label">Salary</div></div>' +
+            '<div class="stat"><div class="stat-num bad">' + fmtMoney(t.irdOut) + '</div><div class="stat-label">Tax (IRD)</div></div>' +
+            '<div class="stat"><div class="stat-num bad">' + fmtMoney(t.rentOut) + '</div><div class="stat-label">Rent</div></div>' +
+            '<div class="stat"><div class="stat-num bad">' + fmtMoney(t.softwareOut) + '</div><div class="stat-label">Software</div></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="gm-card">' +
+          '<div class="gm-eyebrow" style="margin-bottom:10px;">By Month</div>' +
+          monthRows +
+        '</div>' +
+      '</div>'
+    );
   }
 
   const SUPABASE_URL = (typeof window !== 'undefined' && window.DASH_SUPABASE_URL) || '';
