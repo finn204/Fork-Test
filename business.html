@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="lock.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<title>Business · Dashboard</title>
+
+<script src="/api/config"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="topbar.js" defer></script>
+
+<style>
+:root {
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger:  #FF6B6B;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: #050506;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  padding: max(28px, env(safe-area-inset-top)) 20px 60px;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(circle at 82% 14%, rgba(88, 166, 224, 0.16), transparent 45%),
+    radial-gradient(circle at 18% 90%, rgba(180, 180, 200, 0.06), transparent 50%);
+  filter: blur(40px);
+  pointer-events: none;
+  z-index: -2;
+  animation: drift 36s ease-in-out infinite alternate;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px;
+  pointer-events: none;
+  z-index: -1;
+}
+@keyframes drift {
+  0%   { transform: translate3d(0,0,0); }
+  100% { transform: translate3d(-22px, 14px, 0); }
+}
+
+.page { max-width: 1100px; margin: 0 auto; }
+
+.dash-title {
+  margin: 0 0 4px;
+  font-size: 28px; font-weight: 700;
+  letter-spacing: -0.025em;
+  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.dash-sub {
+  font-size: 12px; color: var(--text-tertiary); margin: 0 0 14px;
+}
+@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+
+.section { margin-top: 8px; }
+.section-title {
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary);
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 12px;
+}
+.section-title::before {
+  content: ''; width: 18px; height: 1px;
+  background: var(--text-tertiary); opacity: 0.6;
+}
+.section-title::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent);
+}
+
+.gm-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 14px;
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  overflow: hidden;
+}
+
+.gm-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px; margin-bottom: 14px;
+}
+.gm-header-left { display: flex; flex-direction: column; }
+.gm-eyebrow {
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary); margin-bottom: 6px;
+}
+.gm-progress-row { display: flex; align-items: baseline; gap: 6px; }
+.gm-progress-num {
+  font-size: 42px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.045em; color: var(--text-primary); line-height: 1;
+}
+.gm-progress-label {
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.10em; text-transform: uppercase;
+  color: var(--text-tertiary); margin-left: 4px;
+}
+.gm-streak {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 12px; border-radius: 999px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  color: var(--text-tertiary);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.10em; text-transform: uppercase;
+}
+.gm-streak.good { color: var(--success); border-color: rgba(107,227,164,0.3); }
+.gm-streak.bad  { color: var(--danger);  border-color: rgba(255,107,107,0.3); }
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+.stat {
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px; padding: 14px;
+}
+.stat-num {
+  font-size: 26px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em; color: var(--text-primary); line-height: 1;
+}
+.stat-num.good { color: var(--success); }
+.stat-num.bad  { color: var(--danger); }
+.stat-label {
+  margin-top: 6px;
+  font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.progress-track {
+  height: 10px; border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden; margin-top: 14px;
+}
+.progress-fill {
+  height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, #60A5FA, #6BE3A4);
+  transition: width 0.4s ease;
+}
+.progress-caption {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: var(--text-tertiary); margin-top: 8px;
+}
+
+.empty-state {
+  text-align: center; font-size: 12px; font-style: italic;
+  color: var(--text-tertiary); padding: 24px 0;
+}
+
+@media (max-width: 480px) {
+  body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
+  .gm-card { padding: 16px; }
+  .gm-progress-num { font-size: 36px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1 class="dash-title">Business</h1>
+  <p class="dash-sub" id="refreshedAt">Loading…</p>
+
+  <div id="content">
+    <div class="empty-state">Loading business data…</div>
+  </div>
+
+</div><!-- /.page -->
+
+<script>
+(function () {
+  'use strict';
+
+  function fmtMoney(v) {
+    if (v == null || v === '') return '—';
+    const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/[^0-9.\-]/g, ''));
+    if (isNaN(n)) return String(v);
+    return '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmtPct(v) {
+    if (v == null || v === '') return '—';
+    return String(v).indexOf('%') !== -1 ? String(v) : (v + '%');
+  }
+  function isNegative(v) {
+    return String(v).trim().indexOf('-') === 0;
+  }
+  function num(v, fallback) {
+    const n = parseFloat(v);
+    return isNaN(n) ? (fallback || 0) : n;
+  }
+
+  function render(row) {
+    const contentEl = document.getElementById('content');
+    const refreshedEl = document.getElementById('refreshedAt');
+
+    if (!row || !row.kpi) {
+      contentEl.innerHTML = '<div class="empty-state">No business data yet — ask Claude to pull it from your Google Sheet.</div>';
+      refreshedEl.textContent = '';
+      return;
+    }
+
+    const k = row.kpi;
+    refreshedEl.textContent = row.refreshed_at
+      ? 'Last refreshed ' + new Date(row.refreshed_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+      : '';
+
+    const soldTowards = num(k.clientsSoldTowardsGoal);
+    const goal = num(k.goal, 1);
+    const goalPct = Math.max(0, Math.min(100, (soldTowards / goal) * 100));
+
+    contentEl.innerHTML =
+      '<div class="section">' +
+        '<div class="section-title">This Month</div>' +
+        '<div class="gm-card">' +
+          '<div class="gm-header">' +
+            '<div class="gm-header-left">' +
+              '<div class="gm-eyebrow">MRR Added</div>' +
+              '<div class="gm-progress-row">' +
+                '<span class="gm-progress-num">' + fmtMoney(k.mrrAddedMonth) + '</span>' +
+              '</div>' +
+            '</div>' +
+            '<span class="gm-streak ' + (isNegative(k.onTrackToGoal) ? 'bad' : 'good') + '">' +
+              (k.onTrackToGoal != null ? (isNegative(k.onTrackToGoal) ? '⚠ ' : '✓ ') + fmtPct(k.onTrackToGoal) + ' to goal' : 'On track: —') +
+            '</span>' +
+          '</div>' +
+          '<div class="stat-grid">' +
+            '<div class="stat"><div class="stat-num good">' + (k.clientsSoldMonth != null ? k.clientsSoldMonth : '—') + '</div><div class="stat-label">Clients Sold</div></div>' +
+            '<div class="stat"><div class="stat-num bad">' + (k.clientsLostMonth != null ? k.clientsLostMonth : '—') + '</div><div class="stat-label">Clients Lost</div></div>' +
+            '<div class="stat"><div class="stat-num">' + fmtMoney(k.salaryIncreaseMonth) + '</div><div class="stat-label">Salary Increase</div></div>' +
+            '<div class="stat"><div class="stat-num">' + (k.numberOfClients != null ? k.numberOfClients : '—') + '</div><div class="stat-label">Total Clients</div></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="section">' +
+        '<div class="section-title">This Week</div>' +
+        '<div class="gm-card">' +
+          '<div class="stat-grid">' +
+            '<div class="stat"><div class="stat-num good">' + (k.clientsSoldWeek != null ? k.clientsSoldWeek : '—') + '</div><div class="stat-label">Clients Sold</div></div>' +
+            '<div class="stat"><div class="stat-num bad">' + (k.clientsLostWeek != null ? k.clientsLostWeek : '—') + '</div><div class="stat-label">Clients Lost</div></div>' +
+            '<div class="stat"><div class="stat-num">' + fmtMoney(k.mrrAddedWeek) + '</div><div class="stat-label">MRR Added</div></div>' +
+            '<div class="stat"><div class="stat-num">' + fmtMoney(k.salaryIncreaseWeek) + '</div><div class="stat-label">Salary Increase</div></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="section">' +
+        '<div class="section-title">Goal Progress</div>' +
+        '<div class="gm-card">' +
+          '<div class="gm-header">' +
+            '<div class="gm-header-left">' +
+              '<div class="gm-eyebrow">Clients Sold Toward Goal</div>' +
+              '<div class="gm-progress-row">' +
+                '<span class="gm-progress-num">' + (k.clientsSoldTowardsGoal != null ? k.clientsSoldTowardsGoal : '—') + '</span>' +
+                '<span class="gm-progress-label">/ ' + (k.goal != null ? k.goal : '—') + '</span>' +
+              '</div>' +
+            '</div>' +
+            '<span class="gm-streak">' + fmtPct(k.wayToGoal) + ' there</span>' +
+          '</div>' +
+          '<div class="progress-track"><div class="progress-fill" style="width:' + goalPct + '%"></div></div>' +
+          '<div class="progress-caption"><span>' + (k.salary != null ? ('Salary: ' + fmtMoney(k.salary)) : '') + '</span><span>' + Math.round(goalPct) + '%</span></div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  const SUPABASE_URL = (typeof window !== 'undefined' && window.DASH_SUPABASE_URL) || '';
+  const SUPABASE_KEY = (typeof window !== 'undefined' && window.DASH_SUPABASE_KEY) || '';
+
+  function fetchRow() {
+    if (!SUPABASE_URL || !SUPABASE_KEY) return;
+    fetch(SUPABASE_URL + '/rest/v1/app_state?key=eq.business&select=data', {
+      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY }
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (rows) { render(rows && rows[0] ? rows[0].data : null); })
+      .catch(function () { render(null); });
+  }
+
+  // Wait for /api/config (loaded synchronously above) to have set window.DASH_* —
+  // it's a blocking <script> tag so by the time this runs it's already resolved.
+  fetchRow();
+
+  // Live refresh: if Claude updates the business row while this tab is open.
+  if (window.supabase && SUPABASE_URL && SUPABASE_KEY) {
+    try {
+      const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      supa.channel('app_state_business')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state', filter: 'key=eq.business' }, function (payload) {
+          if (payload.new && payload.new.data) render(payload.new.data);
+        })
+        .subscribe();
+    } catch (e) {}
+  }
+})();
+</script>
+
+</body>
+</html>
