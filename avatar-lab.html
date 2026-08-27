@@ -13,10 +13,10 @@
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
-  --c1: #6EE7B7;   /* primary / light */
-  --c2: #67E8F9;   /* secondary / glow */
+  --c1: #0F9D58;   /* primary / light */
+  --c2: #0284C7;   /* secondary / glow */
   --c3: #1f8f66;   /* deep / shadow   */
-  --bg: #05060c; --fg: #e9ecf5; --muted: rgba(233,236,245,.55); --line: rgba(255,255,255,.1);
+  --bg: #FAF9F5; --fg: #17171A; --muted: rgba(23,23,26,.55); --line: rgba(20,18,14,.12);
 }
 html, body { background: var(--bg); }
 body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; color: var(--fg); min-height: 100vh; }
@@ -30,7 +30,7 @@ header .role { font-family: ui-monospace, monospace; font-size: 10px; letter-spa
 
 /* ---------- control bar ---------- */
 .controls { display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-end;
-  background: rgba(255,255,255,.03); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-bottom: 14px; }
+  background: rgba(20,18,14,03); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-bottom: 14px; }
 .ctl { display: flex; flex-direction: column; gap: 7px; }
 .ctl > label { font-family: ui-monospace, monospace; font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 .swatches { display: flex; gap: 10px; }
@@ -54,13 +54,13 @@ header .role { font-family: ui-monospace, monospace; font-size: 10px; letter-spa
 
 /* ---------- gallery ---------- */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; }
-.card { position: relative; background: rgba(255,255,255,.025); border: 1px solid var(--line); border-radius: 18px;
+.card { position: relative; background: rgba(20,18,14,025); border: 1px solid var(--line); border-radius: 18px;
   padding: 26px 18px 18px; display: flex; flex-direction: column; align-items: center; gap: 16px; min-height: 230px; transition: border-color .2s, transform .2s; }
 .card:hover { border-color: color-mix(in srgb, var(--c1) 50%, transparent); transform: translateY(-2px); }
 .stage { height: 96px; display: flex; align-items: center; justify-content: center; }
 .card .name { font-size: 13.5px; font-weight: 600; }
 .card .desc { font-size: 11px; color: var(--muted); text-align: center; line-height: 1.4; margin-top: -8px; }
-.use { margin-top: auto; border: 1px solid var(--line); background: rgba(255,255,255,.03); color: var(--fg);
+.use { margin-top: auto; border: 1px solid var(--line); background: rgba(20,18,14,03); color: var(--fg);
   font-size: 12px; font-weight: 600; padding: 9px 0; width: 100%; border-radius: 10px; cursor: pointer; transition: .15s; }
 .use:hover { background: var(--c1); color: #04140d; border-color: var(--c1); }
 .use.copied { background: var(--c1); color: #04140d; border-color: var(--c1); }
@@ -124,12 +124,12 @@ header .role { font-family: ui-monospace, monospace; font-size: 10px; letter-spa
 
 /* 5 · PLASMA — glassy swirling conic plasma */
 .av--plasma { border-radius:50%; overflow:hidden; isolation:isolate;
-  box-shadow: 0 0 30px -2px var(--c2), inset 0 0 0 1.5px rgba(255,255,255,.25); animation: floatY 4.5s ease-in-out infinite; }
+  box-shadow: 0 0 30px -2px var(--c2), inset 0 0 0 1.5px rgba(20,18,14,25); animation: floatY 4.5s ease-in-out infinite; }
 .av--plasma::before { content:''; position:absolute; inset:-40%;
   background: conic-gradient(from 0deg, var(--c1), var(--c2), var(--c3), var(--c2), var(--c1));
   filter: blur(10px); animation: spin 7s linear infinite; }
 .av--plasma::after { content:''; position:absolute; inset:0; border-radius:50%;
-  background: radial-gradient(circle at 34% 28%, rgba(255,255,255,.6), transparent 42%); }
+  background: radial-gradient(circle at 34% 28%, rgba(20,18,14,6), transparent 42%); }
 [data-state=think] .av--plasma::before { animation-duration: 1.8s; }
 [data-state=happy] .av--plasma { animation: floatY 4.5s ease-in-out infinite, pop .5s ease; }
 
