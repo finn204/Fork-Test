@@ -239,10 +239,6 @@ body::after {
       ? 'Last refreshed ' + new Date(row.refreshed_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
       : '';
 
-    const soldTowards = num(k.clientsSoldTowardsGoal);
-    const goal = num(k.goal, 1);
-    const goalPct = Math.max(0, Math.min(100, (soldTowards / goal) * 100));
-
     contentEl.innerHTML =
       '<div class="section">' +
         '<div class="section-title">This Month</div>' +
@@ -279,25 +275,51 @@ body::after {
         '</div>' +
       '</div>' +
 
+      renderClientsSection(row.clients, row.clients_refreshed_at) +
+
+      renderBankSection(row.bank, row.bank_refreshed_at);
+  }
+
+  function renderClientsSection(c, refreshedAt) {
+    if (!c) return '';
+    const asOf = refreshedAt ? new Date(refreshedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
+    const solid = (c.stripePaid || 0) + (c.anzConfirmed || 0);
+
+    let staleRows = '';
+    (c.staleList || []).forEach(function (s) {
+      staleRows +=
+        '<div class="gm-row">' +
+          '<div class="gm-row-body"><div class="gm-row-name">' + s.name + '</div>' +
+          '<div class="gm-row-meta">' + (s.monthly ? '$' + s.monthly + '/mo &middot; ' : '') + 'last paid ' + (s.lastDeposit || 'unknown') + '</div></div>' +
+        '</div>';
+    });
+
+    return (
       '<div class="section">' +
-        '<div class="section-title">Goal Progress</div>' +
+        '<div class="section-title">Active Paying Clients' + (asOf ? ' (checked ' + asOf + ')' : '') + '</div>' +
         '<div class="gm-card">' +
           '<div class="gm-header">' +
             '<div class="gm-header-left">' +
-              '<div class="gm-eyebrow">Clients Sold Toward Goal</div>' +
-              '<div class="gm-progress-row">' +
-                '<span class="gm-progress-num">' + (k.clientsSoldTowardsGoal != null ? k.clientsSoldTowardsGoal : '—') + '</span>' +
-                '<span class="gm-progress-label">/ ' + (k.goal != null ? k.goal : '—') + '</span>' +
-              '</div>' +
+              '<div class="gm-eyebrow">Confirmed Active</div>' +
+              '<div class="gm-progress-row"><span class="gm-progress-num good">' + solid + '</span></div>' +
             '</div>' +
-            '<span class="gm-streak">' + fmtPct(k.wayToGoal) + ' there</span>' +
+            '<span class="gm-streak">' + (c.anzStaleCount || 0) + ' flagged stale</span>' +
           '</div>' +
-          '<div class="progress-track"><div class="progress-fill" style="width:' + goalPct + '%"></div></div>' +
-          '<div class="progress-caption"><span>' + (k.salary != null ? ('Salary: ' + fmtMoney(k.salary)) : '') + '</span><span>' + Math.round(goalPct) + '%</span></div>' +
+          '<div class="stat-grid">' +
+            '<div class="stat"><div class="stat-num good">' + (c.stripePaid || 0) + '</div><div class="stat-label">Stripe &mdash; Paid</div></div>' +
+            '<div class="stat"><div class="stat-num">' + (c.stripeRetrying || 0) + '</div><div class="stat-label">Stripe &mdash; Retrying</div></div>' +
+            '<div class="stat"><div class="stat-num good">' + (c.anzConfirmed || 0) + '</div><div class="stat-label">ANZ &mdash; Confirmed</div></div>' +
+            '<div class="stat"><div class="stat-num bad">' + (c.anzStaleCount || 0) + '</div><div class="stat-label">ANZ &mdash; Stale</div></div>' +
+          '</div>' +
         '</div>' +
-      '</div>' +
-
-      renderBankSection(row.bank, row.bank_refreshed_at);
+        (staleRows ? (
+          '<div class="gm-card">' +
+            '<div class="gm-eyebrow" style="margin-bottom:10px;">Marked PAID but no deposit in 45+ days</div>' +
+            staleRows +
+          '</div>'
+        ) : '') +
+      '</div>'
+    );
   }
 
   function renderBankSection(bank, refreshedAt) {
