@@ -12,6 +12,7 @@
 <meta name="theme-color" content="#050506">
 <title>Finn's Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="habits.js"></script>
 <script src="sync.js"></script>
 <script src="topbar.js" defer></script>
 <style>
@@ -1370,22 +1371,15 @@ document.addEventListener('DOMContentLoaded', function () {
 (function () {
   'use strict';
   var KEY = 'goals:daily';
-  var GYM_DAYS = [1, 2, 4, 5]; // Mon, Tue, Thu, Fri
-
-  var ITEMS = [
-    { id: 'bed',     group: 'Morning', text: 'Make bed' },
-    { id: 'teethAm', group: 'Morning', text: 'Brush teeth' },
-    { id: 'gym',     group: 'Morning', text: 'Gym', gymOnly: true },
-    { id: 'walk',    group: 'Morning', text: 'Walk to office' },
-    { id: 'food',    group: 'Evening', text: 'Ate whole foods only' },
-    { id: 'teethPm', group: 'Evening', text: 'Brush teeth' }
-  ];
+  /* task definitions live in habits.js */
 
   function dk(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
   function today(){ return dk(new Date()); }
   function load(){ try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e){ return {}; } }
   function save(v){ localStorage.setItem(KEY, JSON.stringify(v)); }
-  function itemsFor(d){ var dow = d.getDay(); return ITEMS.filter(function(i){ return !i.gymOnly || GYM_DAYS.indexOf(dow) !== -1; }); }
+  /* the clean-day tick lives on the home screen and stores in streaks:v1, not here */
+  function itemsFor(d){ return window.habitsForDay(d).filter(function(i){ return !i.streak; }); }
+  function groupOf(i){ return i.chore ? 'Jobs' : (i.from >= 17 ? 'Evening' : 'Morning'); }
 
   function render(){
     var all = load(), t = today(), day = all[t] || {};
@@ -1396,10 +1390,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var lastGroup = null;
     list.forEach(function(item){
-      if (item.group !== lastGroup) {
+      var g = groupOf(item);
+      if (g !== lastGroup) {
         var h = document.createElement('div');
-        h.className = 'dc-group'; h.textContent = item.group;
-        host.appendChild(h); lastGroup = item.group;
+        h.className = 'dc-group'; h.textContent = g;
+        host.appendChild(h); lastGroup = g;
       }
       var row = document.createElement('div');
       row.className = 'dc-item' + (day[item.id] ? ' on' : '');

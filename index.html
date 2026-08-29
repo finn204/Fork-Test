@@ -13,6 +13,7 @@
 <title>Dashboard</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="habits.js"></script>
 <script src="sync.js"></script>
 <script src="topbar.js" defer></script>
 
@@ -668,17 +669,8 @@ body::after {
   'use strict';
   var SKEY = 'streaks:v1', DKEY = 'goals:daily', WKEY = 'po_water_v1';
   var START = '2026-08-29', TARGET_DATE = '2026-12-25';
-  var GYM_DAYS = [1, 2, 4, 5];
 
-  var HABITS = [
-    { id:'bed',     win:'morning', text:'Make bed' },
-    { id:'teethAm', win:'morning', text:'Brush teeth' },
-    { id:'gym',     win:'morning', text:'Gym',            gymOnly:true },
-    { id:'walk',    win:'morning', text:'Walk to office' },
-    { id:'food',    win:'evening', text:'Ate whole foods only' },
-    { id:'teethPm', win:'evening', text:'Brush teeth' },
-    { id:'clean',   win:'evening', text:'Log a clean day', sub:'No drink, no nicotine' }
-  ];
+  /* task definitions live in habits.js */
 
   function dk(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
   function today(){ return dk(new Date()); }
@@ -723,27 +715,45 @@ body::after {
   }
   function waterLabel(w){ return w.unit==='glass'?'glasses':w.unit==='oz'?'oz':w.unit==='ml'?'ml':'bottles'; }
 
-  function windowNow(){
+  function windowTitle(){
     var h = new Date().getHours();
-    if (h < 11) return 'morning';
-    if (h < 17) return 'day';
-    return 'evening';
+    return h < 11 ? 'This morning' : h < 17 ? 'Today' : 'Tonight';
   }
-  function windowTitle(w){ return w==='morning'?'This morning':w==='day'?'Today':'Tonight'; }
 
   function render(){
     var host = document.getElementById('nowList');
     if (!host) return;
     host.innerHTML = '';
 
-    var win = windowNow();
-    document.getElementById('nowTitle').textContent = windowTitle(win);
+    document.getElementById('nowTitle').textContent = windowTitle();
 
     var all = readJSON(DKEY, {}), day = all[today()] || {};
     var s = loadS();
-    var dow = new Date().getDay();
+    var now = new Date();
 
-    /* water first, hidden once the target is hit */
+    /* Everything open by now and not yet ticked. Chores float to the top. */
+    var due = window.habitsDue(now, now.getHours()).filter(function (h) {
+      return h.streak ? !s.checks[today()] : !day[h.id];
+    });
+    var chores = due.filter(function (h) { return h.chore; });
+    var rest   = due.filter(function (h) { return !h.chore; });
+
+    function drawItems(list){
+      list.forEach(function(h){
+        var row = document.createElement('div');
+        row.className = 'now-item';
+        row.innerHTML = '<span class="now-box"></span><span class="now-text"></span>';
+        var t = row.querySelector('.now-text');
+        t.textContent = h.text;
+        if (h.sub){ var sm=document.createElement('span'); sm.className='now-sub'; sm.textContent=h.sub; t.appendChild(sm); }
+        row.addEventListener('click', function(){ tick(h.id, h.streak); });
+        host.appendChild(row);
+      });
+    }
+
+    drawItems(chores);
+
+    /* water, hidden once the target is hit */
     var w = waterState(), shownWater = false;
     if (w) {
       var got = w.logs[today()] || 0, tgt = waterTargetUnits(w);
@@ -764,29 +774,12 @@ body::after {
       }
     }
 
-    /* habits for this window that aren't ticked yet */
-    var due = HABITS.filter(function(h){
-      if (h.win !== win) return false;
-      if (h.gymOnly && GYM_DAYS.indexOf(dow) === -1) return false;
-      if (h.id === 'clean') return !s.checks[today()];
-      return !day[h.id];
-    });
-
-    due.forEach(function(h){
-      var row = document.createElement('div');
-      row.className = 'now-item';
-      row.innerHTML = '<span class="now-box"></span><span class="now-text"></span>';
-      var t = row.querySelector('.now-text');
-      t.textContent = h.text;
-      if (h.sub){ var sm=document.createElement('span'); sm.className='now-sub'; sm.textContent=h.sub; t.appendChild(sm); }
-      row.addEventListener('click', function(){ tick(h.id); });
-      host.appendChild(row);
-    });
+    drawItems(rest);
 
     if (!due.length && !shownWater){
       var e = document.createElement('div');
       e.className = 'now-empty';
-      e.textContent = win === 'evening' ? 'Done for today. Good.' : 'Nothing left right now.';
+      e.textContent = new Date().getHours() >= 17 ? 'Done for today. Good.' : 'Nothing left right now.';
       host.appendChild(e);
     }
 
@@ -797,8 +790,8 @@ body::after {
     document.getElementById('nicNum').textContent = streakDays(s, 'nicotine');
   }
 
-  function tick(id){
-    if (id === 'clean'){
+  function tick(id, isStreak){
+    if (isStreak){
       var s = loadS(); s.checks[today()] = true;
       localStorage.setItem(SKEY, JSON.stringify(s)); render(); return;
     }
