@@ -423,7 +423,9 @@ body::after {
   // Live refresh: if Claude updates the business row while this tab is open.
   if (window.supabase && SUPABASE_URL && SUPABASE_KEY) {
     try {
-      const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      const supa = (window.dashAuth && window.dashAuth.client)
+        ? window.dashAuth.client
+        : window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
       supa.channel('app_state_business')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state', filter: 'key=eq.business' }, function (payload) {
           if (payload.new && payload.new.data) render(payload.new.data);

@@ -3517,7 +3517,9 @@ img, video, canvas, svg { max-width: 100%; }
     if (!window.supabase || !SUPABASE_URL || !SUPABASE_KEY) return;
     // Skip if the placeholder values are still in place (local-only mode)
     if (SUPABASE_URL.indexOf('PASTE-') === 0 || SUPABASE_KEY.indexOf('PASTE-') === 0) return;
-    pcSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    pcSupa = (window.dashAuth && window.dashAuth.client)
+      ? window.dashAuth.client
+      : window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     try { refreshPhotoUrls(); } catch (e) {}
     try {
       const { data, error } = await pcSupa

@@ -133,7 +133,11 @@
     }
 
     (async function init() {
-      supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      /* Reuse the signed-in client from auth.js so there is exactly one
+         auth instance per page; several would fight over the session. */
+      supa = (window.dashAuth && window.dashAuth.client)
+        ? window.dashAuth.client
+        : window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
       try {
         const { data, error } = await supa
           .from('app_state').select('data').eq('key', appKey).maybeSingle();
