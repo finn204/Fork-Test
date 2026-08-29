@@ -24,6 +24,7 @@
     { id:'walk',     text:'Walk to office', from:0, dow:[1,2,3,4,5] },
 
     /* --- evening --- */
+    { id:'stretch',  text:'Stretch', sub:'5 min. Routine on The Plan.', from:17 },
     { id:'food',     text:'Ate whole foods only', from:17 },
     { id:'teethPm',  text:'Brush teeth',          from:17 },
     { id:'clean',    text:'Log a clean day', sub:'No drink, no nicotine', from:17, streak:true }
