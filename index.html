@@ -676,6 +676,20 @@ body::after {
   function today(){ return dk(new Date()); }
   function parse(k){ var p=k.split('-'); return new Date(+p[0],+p[1]-1,+p[2]); }
   function between(a,b){ return Math.round((parse(b)-parse(a))/86400000); }
+  /* Calendar months then leftover days, e.g. "3 months, 26 days to Christmas". */
+  function untilLabel(fromKey, toKey){
+    var a = parse(fromKey), b = parse(toKey);
+    if (b < a) return '';
+    var months = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+    var mark = new Date(a.getFullYear(), a.getMonth() + months, a.getDate());
+    if (mark > b) { months--; mark = new Date(a.getFullYear(), a.getMonth() + months, a.getDate()); }
+    var days = Math.round((b - mark) / 86400000);
+    var out = [];
+    if (months > 0) out.push(months + ' month' + (months === 1 ? '' : 's'));
+    if (days > 0) out.push(days + ' day' + (days === 1 ? '' : 's'));
+    if (!out.length) return 'Christmas';
+    return out.join(', ') + ' to Christmas';
+  }
   function readJSON(k,f){ try { return JSON.parse(localStorage.getItem(k)) || f; } catch(e){ return f; } }
 
   function loadS(){
@@ -783,8 +797,7 @@ body::after {
       host.appendChild(e);
     }
 
-    var left = between(today(), TARGET_DATE);
-    document.getElementById('nowCount').textContent = left > 0 ? left + ' days to Christmas' : '';
+    document.getElementById('nowCount').textContent = untilLabel(today(), TARGET_DATE);
 
     document.getElementById('alcNum').textContent = streakDays(s, 'alcohol');
     document.getElementById('nicNum').textContent = streakDays(s, 'nicotine');
