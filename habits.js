@@ -20,6 +20,7 @@
 
     /* --- morning --- */
     { id:'photo',    text:'Progress photo', sub:'Same spot, same light, before food.', from:0 },
+    { id:'weigh',    text:'Weigh in', sub:'Same time, after the toilet, before food.', from:0 },
     { id:'bed',      text:'Make bed',       from:0 },
     { id:'teethAm',  text:'Brush teeth',    from:0 },
     { id:'gym',      text:'Gym',            from:0, dow:[1,2,4,5] },
