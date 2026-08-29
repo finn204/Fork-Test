@@ -209,44 +209,34 @@ body::after {
 .whoop-btn { width: 100%; margin-top: 14px; padding: 11px; border: 1px solid rgba(255,255,255,0.12); border-radius: 11px; background: transparent; color: var(--text-secondary); font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: background 0.15s, color 0.15s; }
 .whoop-btn:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
 
-/* ===== Streaks card ===== */
-.streaks {
-  background: #0E0E10; border: 1px solid #1F1F23; border-radius: 18px;
-  padding: 16px 16px 14px; margin: 0 0 14px;
-}
-.streaks-head {
-  display: flex; align-items: baseline; justify-content: space-between;
-  margin-bottom: 12px; gap: 10px;
-}
-.streaks-title {
-  font-size: 11px; letter-spacing: 0.22em; font-weight: 600;
-  color: var(--text-tertiary); text-transform: uppercase; margin: 0;
-}
-.streaks-countdown { font-size: 11px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
-.streaks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.streak {
-  background: #141417; border: 1px solid #212126; border-radius: 14px; padding: 12px 12px 10px;
-}
-.streak-num {
-  font-size: 40px; line-height: 1; font-weight: 700; letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums; color: var(--accent, #6BE3A4);
-}
-.streak-unit { font-size: 13px; color: var(--text-tertiary); font-weight: 500; margin-left: 4px; }
-.streak-label {
-  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
-  color: var(--text-secondary); margin-top: 6px; font-weight: 600;
-}
-.streaks-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-.streak-btn {
-  flex: 1 1 auto; min-width: 0; font-family: inherit; font-size: 13px; font-weight: 600;
-  padding: 11px 12px; border-radius: 11px; cursor: pointer; border: 1px solid #26262C;
-  background: #17171B; color: var(--text-primary); transition: transform .12s ease, opacity .12s ease;
-}
-.streak-btn:active { transform: scale(0.97); }
-.streak-btn.primary { background: #6BE3A4; color: #06110B; border-color: #6BE3A4; flex: 2 1 100%; }
-.streak-btn.primary.done { background: #17301F; color: #6BE3A4; border-color: #24512F; }
-.streak-btn.slip { font-size: 12px; color: var(--text-tertiary); font-weight: 500; }
-@media (max-width: 380px) { .streak-num { font-size: 34px; } }
+/* ===== Now card + streak strip ===== */
+.now{background:#0E0E10;border:1px solid #1F1F23;border-radius:18px;padding:16px;margin:0 0 10px;}
+.now-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px;}
+.now-title{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--text-tertiary);font-weight:600;margin:0;}
+.now-count{font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary);}
+.now-item{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid #1A1A1E;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.now-item:last-child{border-bottom:none;}
+.now-box{flex:0 0 auto;width:24px;height:24px;border-radius:8px;border:1.5px solid #2E2E35;}
+.now-text{font-size:16px;color:var(--text-primary);flex:1;}
+.now-sub{display:block;font-size:12px;color:var(--text-tertiary);margin-top:2px;}
+.now-empty{padding:6px 0 2px;font-size:15px;color:var(--text-tertiary);}
+/* water row */
+.now-water{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid #1A1A1E;}
+.now-water:last-child{border-bottom:none;}
+.now-water-emoji{font-size:20px;flex:0 0 auto;width:24px;text-align:center;}
+.now-water-txt{flex:1;font-size:16px;color:var(--text-primary);}
+.now-water-txt b{font-variant-numeric:tabular-nums;}
+.now-plus{flex:0 0 auto;width:40px;height:34px;border-radius:10px;border:1px solid #2E2E35;background:#17171B;
+  color:#60A5FA;font-size:20px;font-weight:600;line-height:1;cursor:pointer;font-family:inherit;}
+.now-plus:active{transform:scale(0.95);}
+/* streak strip */
+.strip{display:flex;gap:8px;margin:0 0 14px;}
+.strip-item{flex:1;background:#0E0E10;border:1px solid #1F1F23;border-radius:14px;padding:10px 12px;
+  text-align:left;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.strip-item:active{transform:scale(0.98);}
+.strip-num{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent,#6BE3A4);line-height:1;}
+.strip-unit{font-size:11px;color:var(--text-tertiary);margin-left:3px;}
+.strip-label{font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-secondary);margin-top:5px;font-weight:600;}
 </style>
 </head>
 <body>
@@ -263,27 +253,24 @@ body::after {
   </div>
 
 
-  <section class="streaks" id="streaksCard">
-    <div class="streaks-head">
-      <h2 class="streaks-title">Streaks</h2>
-      <span class="streaks-countdown" id="streaksCountdown"></span>
+  <section class="now" id="nowCard">
+    <div class="now-head">
+      <h2 class="now-title" id="nowTitle">Right now</h2>
+      <span class="now-count" id="nowCount"></span>
     </div>
-    <div class="streaks-grid">
-      <div class="streak" style="--accent:#6BE3A4">
-        <div><span class="streak-num" id="alcNum">0</span><span class="streak-unit">days</span></div>
-        <div class="streak-label">Alcohol free</div>
-      </div>
-      <div class="streak" style="--accent:#60A5FA">
-        <div><span class="streak-num" id="nicNum">0</span><span class="streak-unit">days</span></div>
-        <div class="streak-label">Nicotine free</div>
-      </div>
-    </div>
-    <div class="streaks-actions">
-      <button class="streak-btn primary" id="cleanBtn" type="button">Clean day &check;</button>
-      <button class="streak-btn slip" id="slipAlc" type="button">I drank</button>
-      <button class="streak-btn slip" id="slipNic" type="button">I vaped</button>
-    </div>
+    <div id="nowList"></div>
   </section>
+
+  <div class="strip">
+    <button class="strip-item" id="stripAlc" type="button" style="--accent:#6BE3A4">
+      <div><span class="strip-num" id="alcNum">0</span><span class="strip-unit">days</span></div>
+      <div class="strip-label">Alcohol free</div>
+    </button>
+    <button class="strip-item" id="stripNic" type="button" style="--accent:#60A5FA">
+      <div><span class="strip-num" id="nicNum">0</span><span class="strip-unit">days</span></div>
+      <div class="strip-label">Nicotine free</div>
+    </button>
+  </div>
 
   <div class="bento">
 
@@ -676,91 +663,176 @@ body::after {
 </script>
 
 <script>
-/* ===== Streaks: zero alcohol, zero nicotine. Started 2026-08-29. ===== */
+/* ===== Now card: time-aware checklist + streak strip ===== */
 (function () {
   'use strict';
-  var KEY = 'streaks:v1';
-  var START = '2026-08-29';
-  var TARGET = '2026-12-25';
+  var SKEY = 'streaks:v1', DKEY = 'goals:daily', WKEY = 'po_water_v1';
+  var START = '2026-08-29', TARGET_DATE = '2026-12-25';
+  var GYM_DAYS = [1, 2, 4, 5];
 
-  function dk(d) {
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  }
-  function today() { return dk(new Date()); }
-  function parse(k) { var p = k.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
-  function daysBetween(a, b) { return Math.round((parse(b) - parse(a)) / 86400000); }
+  var HABITS = [
+    { id:'bed',     win:'morning', text:'Make bed' },
+    { id:'teethAm', win:'morning', text:'Brush teeth' },
+    { id:'gym',     win:'morning', text:'Gym',            gymOnly:true },
+    { id:'walk',    win:'morning', text:'Walk to office' },
+    { id:'food',    win:'evening', text:'Ate whole foods only' },
+    { id:'teethPm', win:'evening', text:'Brush teeth' },
+    { id:'clean',   win:'evening', text:'Log a clean day', sub:'No drink, no nicotine' }
+  ];
 
-  function load() {
-    var d;
-    try { d = JSON.parse(localStorage.getItem(KEY)); } catch (e) { d = null; }
-    if (!d || typeof d !== 'object') d = {};
-    if (!d.start) d.start = { alcohol: START, nicotine: START };
-    if (!d.slips) d.slips = { alcohol: [], nicotine: [] };
+  function dk(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function today(){ return dk(new Date()); }
+  function parse(k){ var p=k.split('-'); return new Date(+p[0],+p[1]-1,+p[2]); }
+  function between(a,b){ return Math.round((parse(b)-parse(a))/86400000); }
+  function readJSON(k,f){ try { return JSON.parse(localStorage.getItem(k)) || f; } catch(e){ return f; } }
+
+  function loadS(){
+    var d = readJSON(SKEY, {});
+    if (!d.start)  d.start  = { alcohol:START, nicotine:START };
+    if (!d.slips)  d.slips  = { alcohol:[], nicotine:[] };
     if (!d.checks) d.checks = {};
     return d;
   }
-  function save(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
+  function streakDays(d, which){
+    var slips=(d.slips[which]||[]).slice().sort(), from=d.start[which]||START;
+    if (slips.length){
+      var last=slips[slips.length-1];
+      if (between(from,last)>=0){ var nx=parse(last); nx.setDate(nx.getDate()+1); from=dk(nx); }
+    }
+    var n=between(from,today())+1; return n>0?n:0;
+  }
 
-  function streakDays(d, which) {
-    var slips = (d.slips[which] || []).slice().sort();
-    var from = d.start[which] || START;
-    if (slips.length) {
-      var last = slips[slips.length - 1];
-      if (daysBetween(from, last) >= 0) {
-        var nx = parse(last); nx.setDate(nx.getDate() + 1); from = dk(nx);
+  /* Water target, same formula as po-water.html */
+  function waterState(){
+    var w = readJSON(WKEY, null);
+    if (!w || typeof w !== 'object') return null;
+    if (!w.logs) w.logs = {};
+    return w;
+  }
+  function waterTargetUnits(w){
+    var p = w.profile || {};
+    var wKg = w.weightUnit === 'lb' ? (p.weightKg||0)/2.20462 : (p.weightKg||0);
+    var total = wKg*35 + ((p.activityHrsPerWeek||0)/7*500)
+              + Math.max(0,(w.caffeineMgPerDay||0)-200)*1.5
+              + (w.substances||[]).reduce(function(s,x){ var dose=(x.dose!=null?x.dose:x.defaultDose)||0; return s+Math.max(0,dose*(x.mlPerUnit||0)); },0)
+              + (p.sex==='m'?200:0) + ((p.age||0)>=50?100:0);
+    var per = w.unit==='bottle' ? (w.bottleMl||500)
+            : w.unit==='glass'  ? (w.glassMl||250)
+            : w.unit==='oz'     ? 30 : 1;
+    return Math.max(1, Math.ceil(total/per));
+  }
+  function waterLabel(w){ return w.unit==='glass'?'glasses':w.unit==='oz'?'oz':w.unit==='ml'?'ml':'bottles'; }
+
+  function windowNow(){
+    var h = new Date().getHours();
+    if (h < 11) return 'morning';
+    if (h < 17) return 'day';
+    return 'evening';
+  }
+  function windowTitle(w){ return w==='morning'?'This morning':w==='day'?'Today':'Tonight'; }
+
+  function render(){
+    var host = document.getElementById('nowList');
+    if (!host) return;
+    host.innerHTML = '';
+
+    var win = windowNow();
+    document.getElementById('nowTitle').textContent = windowTitle(win);
+
+    var all = readJSON(DKEY, {}), day = all[today()] || {};
+    var s = loadS();
+    var dow = new Date().getDay();
+
+    /* water first, hidden once the target is hit */
+    var w = waterState(), shownWater = false;
+    if (w) {
+      var got = w.logs[today()] || 0, tgt = waterTargetUnits(w);
+      if (got < tgt) {
+        shownWater = true;
+        var row = document.createElement('div');
+        row.className = 'now-water';
+        row.innerHTML = '<span class="now-water-emoji">\uD83D\uDCA7</span>'
+          + '<span class="now-water-txt">Water <b>' + got + '</b> / ' + tgt + ' ' + waterLabel(w) + '</span>'
+          + '<button class="now-plus" type="button" aria-label="Log one">+</button>';
+        row.querySelector('.now-plus').addEventListener('click', function(){
+          var ww = waterState(); if (!ww) return;
+          ww.logs[today()] = (ww.logs[today()] || 0) + 1;
+          localStorage.setItem(WKEY, JSON.stringify(ww));
+          render();
+        });
+        host.appendChild(row);
       }
     }
-    var n = daysBetween(from, today()) + 1;
-    return n > 0 ? n : 0;
-  }
 
-  function render() {
-    var d = load();
-    document.getElementById('alcNum').textContent = streakDays(d, 'alcohol');
-    document.getElementById('nicNum').textContent = streakDays(d, 'nicotine');
+    /* habits for this window that aren't ticked yet */
+    var due = HABITS.filter(function(h){
+      if (h.win !== win) return false;
+      if (h.gymOnly && GYM_DAYS.indexOf(dow) === -1) return false;
+      if (h.id === 'clean') return !s.checks[today()];
+      return !day[h.id];
+    });
 
-    var left = daysBetween(today(), TARGET);
-    var cd = document.getElementById('streaksCountdown');
-    cd.textContent = left > 0 ? (left + ' days to Christmas') : 'Christmas';
+    due.forEach(function(h){
+      var row = document.createElement('div');
+      row.className = 'now-item';
+      row.innerHTML = '<span class="now-box"></span><span class="now-text"></span>';
+      var t = row.querySelector('.now-text');
+      t.textContent = h.text;
+      if (h.sub){ var sm=document.createElement('span'); sm.className='now-sub'; sm.textContent=h.sub; t.appendChild(sm); }
+      row.addEventListener('click', function(){ tick(h.id); });
+      host.appendChild(row);
+    });
 
-    var btn = document.getElementById('cleanBtn');
-    if (d.checks[today()]) {
-      btn.classList.add('done');
-      btn.textContent = 'Logged for today \u2713';
-    } else {
-      btn.classList.remove('done');
-      btn.innerHTML = 'Clean day &check;';
+    if (!due.length && !shownWater){
+      var e = document.createElement('div');
+      e.className = 'now-empty';
+      e.textContent = win === 'evening' ? 'Done for today. Good.' : 'Nothing left right now.';
+      host.appendChild(e);
     }
+
+    var left = between(today(), TARGET_DATE);
+    document.getElementById('nowCount').textContent = left > 0 ? left + ' days to Christmas' : '';
+
+    document.getElementById('alcNum').textContent = streakDays(s, 'alcohol');
+    document.getElementById('nicNum').textContent = streakDays(s, 'nicotine');
   }
 
-  function markClean() { var d = load(); d.checks[today()] = true; save(d); render(); }
-  function slip(which) {
-    var d = load();
-    var t = today();
-    if ((d.slips[which] || []).indexOf(t) === -1) d.slips[which].push(t);
-    delete d.checks[t];
-    save(d); render();
+  function tick(id){
+    if (id === 'clean'){
+      var s = loadS(); s.checks[today()] = true;
+      localStorage.setItem(SKEY, JSON.stringify(s)); render(); return;
+    }
+    var all = readJSON(DKEY, {}), t = today();
+    if (!all[t]) all[t] = {};
+    all[t][id] = 1;
+    localStorage.setItem(DKEY, JSON.stringify(all));
+    render();
   }
 
-  document.getElementById('cleanBtn').addEventListener('click', markClean);
-  document.getElementById('slipAlc').addEventListener('click', function () {
-    if (confirm('Log a drink today? This resets your alcohol streak.')) slip('alcohol');
-  });
-  document.getElementById('slipNic').addEventListener('click', function () {
-    if (confirm('Log nicotine today? This resets your nicotine streak.')) slip('nicotine');
-  });
+  function slip(which, label){
+    if (!confirm('Log ' + label + ' today? This resets that streak.')) return;
+    var s = loadS(), t = today();
+    if ((s.slips[which]||[]).indexOf(t) === -1) s.slips[which].push(t);
+    delete s.checks[t];
+    localStorage.setItem(SKEY, JSON.stringify(s));
+    render();
+  }
+  document.getElementById('stripAlc').addEventListener('click', function(){ slip('alcohol','a drink'); });
+  document.getElementById('stripNic').addEventListener('click', function(){ slip('nicotine','nicotine'); });
 
   render();
+  setInterval(render, 60000); /* roll over between windows without a reload */
+  window.addEventListener('storage', render);
 
-  if (typeof window.initCloudSync === 'function') {
-    window.initCloudSync({ appKey: 'streaks', syncedKeys: [KEY], onApplied: render });
-  } else {
-    document.addEventListener('DOMContentLoaded', function () {
-      if (typeof window.initCloudSync === 'function') {
-        window.initCloudSync({ appKey: 'streaks', syncedKeys: [KEY], onApplied: render });
-      }
-    });
+  function startSync(){
+    if (typeof window.initCloudSync !== 'function' || startSync.done) return;
+    startSync.done = true;
+    window.initCloudSync({ appKey:'streaks', syncedKeys:[SKEY], onApplied:render });
+    window.initCloudSync({ appKey:'goals', syncedPrefixes:['goals:'], onApplied:render });
+    window.initCloudSync({ appKey:'health', syncedKeys:[WKEY], onApplied:render });
   }
+  if (typeof window.initCloudSync === 'function') startSync();
+  else document.addEventListener('DOMContentLoaded', startSync);
 })();
 </script>
 </body>
