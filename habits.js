@@ -32,6 +32,7 @@
     { id:'stretch',  text:'Stretch', sub:'5 min. Routine on The Plan.', from:17 },
     { id:'food',     text:'Ate whole foods only', from:17 },
     { id:'teethPm',  text:'Brush teeth',          from:17 },
+    { id:'phone',    text:'Phone on charge in the kitchen', sub:'Watch is your alarm now.', from:17 },
     { id:'clean',    text:'Log a clean day', sub:'No drink, no nicotine', from:17, streak:true }
   ];
 
