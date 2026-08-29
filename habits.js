@@ -16,15 +16,17 @@
     { id:'sheets',   text:'Change sheets',  from:0, dow:[6], chore:true },
     { id:'washing',  text:'Sort washing',   from:0, dow:[6], chore:true },
     { id:'vacuum',   text:'Vacuum room',    from:0, dow:[6], chore:true },
+    { id:'walkend',  text:'40 min walk', sub:'No commute today. Steps have to come from somewhere.', from:0, dow:[0,6] },
 
     /* --- morning --- */
     { id:'photo',    text:'Progress photo', sub:'Same spot, same light, before food.', from:0 },
     { id:'bed',      text:'Make bed',       from:0 },
     { id:'teethAm',  text:'Brush teeth',    from:0 },
     { id:'gym',      text:'Gym',            from:0, dow:[1,2,4,5] },
-    { id:'walk',     text:'Walk to office', from:0, dow:[1,2,3,4,5] },
+    { id:'walk',     text:'Walk to office', from:0,  dow:[1,2,3,4,5] },
 
     /* --- evening --- */
+    { id:'walkhome', text:'Walk home', sub:'The ride home is where 10k dies.', from:17, dow:[1,2,3,4,5] },
     { id:'stretch',  text:'Stretch', sub:'5 min. Routine on The Plan.', from:17 },
     { id:'food',     text:'Ate whole foods only', from:17 },
     { id:'teethPm',  text:'Brush teeth',          from:17 },
