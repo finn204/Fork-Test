@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<script src="lock.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<title>The Plan · Dashboard</title>
+<script src="topbar.js" defer></script>
+<style>
+:root{
+  --bg:#050506; --card:#0E0E10; --card-2:#141417; --line:#1F1F23; --line-2:#26262C;
+  --text-primary:#FAFAFA; --text-secondary:#B8B6B0; --text-tertiary:#76746E;
+  --accent:#6BE3A4; --blue:#60A5FA; --amber:#F2C063;
+  --font:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text-primary);font-family:var(--font);-webkit-font-smoothing:antialiased;}
+.page{max-width:640px;margin:0 auto;padding:max(28px,env(safe-area-inset-top)) 20px 60px;}
+h1{font-size:30px;font-weight:700;letter-spacing:-0.02em;margin:0 0 4px;}
+.sub{color:var(--text-tertiary);font-size:14px;margin:0 0 24px;}
+.sec{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--text-tertiary);font-weight:600;margin:28px 0 10px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;}
+.rule{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line);}
+.rule:last-child{border-bottom:none;}
+.rule-n{color:var(--accent);font-family:var(--mono);font-size:13px;font-weight:600;flex:0 0 auto;padding-top:1px;}
+.rule-t{font-size:15px;line-height:1.45;}
+.rule-t small{display:block;color:var(--text-tertiary);font-size:13px;margin-top:3px;line-height:1.4;}
+.day{display:flex;align-items:baseline;gap:10px;margin:0 0 10px;}
+.day-name{font-size:17px;font-weight:700;}
+.day-tag{font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-tertiary);font-weight:600;}
+table{width:100%;border-collapse:collapse;font-size:14px;}
+td{padding:7px 0;border-bottom:1px solid var(--line);vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+td.ex{color:var(--text-primary);}
+td.sets{text-align:right;color:var(--text-secondary);font-family:var(--mono);font-size:13px;white-space:nowrap;padding-left:12px;}
+.off{color:var(--text-tertiary);font-size:14px;}
+.note{background:var(--card-2);border:1px solid var(--line-2);border-radius:12px;padding:13px 14px;font-size:14px;line-height:1.5;color:var(--text-secondary);margin-top:12px;}
+.note b{color:var(--text-primary);}
+.meal{font-size:15px;line-height:1.5;}
+.meal b{display:block;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:4px;font-weight:600;}
+.meal + .meal{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);}
+.warn{border-color:#3A2A18;background:#17120A;}
+.warn b{color:var(--amber);}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>The Plan</h1>
+  <p class="sub">29 Aug &rarr; 25 Dec 2026. One goal: visibly less fat.</p>
+
+  <div class="sec">The rules</div>
+  <div class="card">
+    <div class="rule"><span class="rule-n">01</span><span class="rule-t">Zero alcohol<small>Any exception gets booked on the dashboard days ahead. Never decided on the night.</small></span></div>
+    <div class="rule"><span class="rule-n">02</span><span class="rule-t">Zero nicotine<small>Vapes binned 29 Aug.</small></span></div>
+    <div class="rule"><span class="rule-n">03</span><span class="rule-t">Whole foods only<small>Nothing processed. Same meals every day is fine.</small></span></div>
+    <div class="rule"><span class="rule-n">04</span><span class="rule-t">Gym Mon, Tue, Thu, Fri<small>08:15&ndash;08:45. Weekend sessions are a bonus, not a requirement.</small></span></div>
+    <div class="rule"><span class="rule-n">05</span><span class="rule-t">Tick the dashboard every night<small>30 seconds. Log slips honestly or the whole thing is worthless.</small></span></div>
+  </div>
+
+  <div class="sec">Friday and Saturday</div>
+  <div class="card">
+    <div class="meal"><b>The plan, decided sober</b>Go out with the boys. Drink nothing. Drive.</div>
+    <div class="note"><b>Driving is the point.</b> Nobody argues with the driver. You are not defending a choice at 11pm with six drinks lined up in front of you. You also remember the night and keep your money.</div>
+  </div>
+
+  <div class="sec">Training &middot; 30 minutes</div>
+
+  <div class="card">
+    <div class="day"><span class="day-name">Monday</span><span class="day-tag">Upper A</span></div>
+    <table>
+      <tr><td class="ex">Dumbbell bench press</td><td class="sets">4 &times; 8&ndash;10</td></tr>
+      <tr><td class="ex">One-arm dumbbell row</td><td class="sets">4 &times; 10&ndash;12</td></tr>
+      <tr><td class="ex">Dumbbell shoulder press</td><td class="sets">3 &times; 10&ndash;12</td></tr>
+      <tr><td class="ex">Lat pulldown</td><td class="sets">3 &times; 10&ndash;12</td></tr>
+      <tr><td class="ex">Face pull</td><td class="sets">3 &times; 15</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="day"><span class="day-name">Tuesday</span><span class="day-tag">Lower A</span></div>
+    <table>
+      <tr><td class="ex">Leg press</td><td class="sets">4 &times; 10&ndash;12</td></tr>
+      <tr><td class="ex">Dumbbell Romanian deadlift</td><td class="sets">3 &times; 10&ndash;12</td></tr>
+      <tr><td class="ex">Seated leg curl</td><td class="sets">3 &times; 12&ndash;15</td></tr>
+      <tr><td class="ex">Calf raise</td><td class="sets">3 &times; 15&ndash;20</td></tr>
+      <tr><td class="ex">Plank</td><td class="sets">3 &times; 45s</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="day"><span class="day-name">Wednesday</span><span class="day-tag">Off</span></div>
+    <p class="off" style="margin:0;">Deliberate. Walk to work as normal. Missing a day midweek does not blow the week.</p>
+  </div>
+
+  <div class="card">
+    <div class="day"><span class="day-name">Thursday</span><span class="day-tag">Upper B</span></div>
+    <table>
+      <tr><td class="ex">Incline dumbbell press</td><td class="sets">4 &times; 8&ndash;10</td></tr>
+      <tr><td class="ex">Seated cable row</td><td class="sets">4 &times; 10&ndash;12</td></tr>
+      <tr><td class="ex">Lateral raise</td><td class="sets">3 &times; 12&ndash;15</td></tr>
+      <tr><td class="ex">Assisted pull-up or pulldown</td><td class="sets">3 &times; 8&ndash;10</td></tr>
+      <tr><td class="ex">Face pull</td><td class="sets">3 &times; 15</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="day"><span class="day-name">Friday</span><span class="day-tag">Lower B</span></div>
+    <table>
+      <tr><td class="ex">Bulgarian split squat (dumbbells)</td><td class="sets">3 &times; 10 each</td></tr>
+      <tr><td class="ex">Hip thrust</td><td class="sets">4 &times; 10&ndash;12</td></tr>
+      <tr><td class="ex">Leg extension</td><td class="sets">3 &times; 12&ndash;15</td></tr>
+      <tr><td class="ex">Calf raise</td><td class="sets">3 &times; 15&ndash;20</td></tr>
+      <tr><td class="ex">Hanging knee raise</td><td class="sets">3 &times; 12</td></tr>
+    </table>
+  </div>
+
+  <div class="card warn">
+    <div class="meal"><b>No squats. Ever.</b>Scoliosis. Nothing here loads a bar across your back. Leg press, split squats and hip thrusts do the same job without the spinal compression. If you ever want to revisit it, that is a physio conversation, not a gym one.</div>
+  </div>
+
+  <div class="sec">Warm-up &middot; 5 minutes, every session</div>
+  <div class="card">
+    <table>
+      <tr><td class="ex">Cat-cow</td><td class="sets">10 slow</td></tr>
+      <tr><td class="ex">Band pull-apart</td><td class="sets">2 &times; 15</td></tr>
+      <tr><td class="ex">Dead hang from the bar</td><td class="sets">2 &times; 20s</td></tr>
+      <tr><td class="ex">Hip flexor stretch</td><td class="sets">30s each</td></tr>
+    </table>
+    <div class="note"><b>This is your posture and stretching work.</b> It is not a separate habit to remember. It happens because it is the first thing in every session.</div>
+  </div>
+
+  <div class="sec">Progression</div>
+  <div class="card">
+    <div class="meal"><b>The only rule that matters</b>Hit the top of the rep range on every set, then add weight next session and drop back to the bottom of the range. Write down what you lifted. That is the whole system.</div>
+    <div class="note">Turning up and picking machines is why nothing has moved. Same lifts, every week, slightly heavier. Boring works.</div>
+  </div>
+
+  <div class="sec">Sunday prep &middot; 2 hours</div>
+  <div class="card">
+    <div class="meal"><b>Rice cooker</b>Big batch of rice. Five days worth.</div>
+    <div class="meal"><b>Slow cooker or pan</b>Venison mince, heavily seasoned. Dad's spice rack is the whole point. Sriracha on top when you eat it.</div>
+    <div class="meal"><b>Oven tray</b>Whatever veg is going. Not asparagus, not capsicum.</div>
+    <div class="meal"><b>Portion out</b>Five glass containers. Meat, rice, veg. Done.</div>
+    <div class="note warn" style="border-color:#3A2A18;background:#17120A;"><b>Buy the glass containers first.</b> No containers, no prep, no plan. The office bowls are too small and this whole thing stalls on a $20 purchase.</div>
+  </div>
+
+  <div class="sec">A normal day</div>
+  <div class="card">
+    <div class="meal"><b>Breakfast</b>3&ndash;4 eggs. You already do this.</div>
+    <div class="meal"><b>Lunch</b>Prepped bowl, microwaved at the office.</div>
+    <div class="meal"><b>Protein shake</b>Office milk is free and unlimited. Use it.</div>
+    <div class="meal"><b>Dinner</b>Prepped bowl, or mum's cooking if it is whole food.</div>
+    <div class="meal"><b>Snacks</b>Fruit, nuts, yoghurt. Not toffee pops.</div>
+  </div>
+
+  <div class="sec">What not to do</div>
+  <div class="card">
+    <div class="note"><b>Do not add anything to this plan for six weeks.</b> No new tracker, no supplements, no second program, no reverse-engineering your watch. You already told me your risk is overcommitting and going manual. Four rules and one program is the whole thing. If you want to change something, change the weight on the bar.</div>
+  </div>
+
+</div>
+</body>
+</html>
