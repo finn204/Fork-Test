@@ -599,6 +599,29 @@ body::after {
   .gm-card { padding: 16px; }
   .gm-progress-num { font-size: 36px; }
 }
+
+/* ===== Daily checklist ===== */
+.dc-card{background:#0E0E10;border:1px solid #1F1F23;border-radius:16px;padding:14px 14px 12px;}
+.dc-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;gap:10px;}
+.dc-date{font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#76746E;font-weight:600;}
+.dc-count{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:13px;color:#6BE3A4;font-weight:600;}
+.dc-group{font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:#76746E;font-weight:600;margin:12px 0 4px;}
+.dc-group:first-child{margin-top:0;}
+.dc-list{list-style:none;margin:0;padding:0;}
+.dc-item{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid #1A1A1E;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.dc-item:last-child{border-bottom:none;}
+.dc-box{flex:0 0 auto;width:22px;height:22px;border-radius:7px;border:1.5px solid #2E2E35;display:flex;align-items:center;justify-content:center;transition:background .15s ease,border-color .15s ease;}
+.dc-box svg{width:13px;height:13px;stroke:#06110B;stroke-width:3.2;fill:none;opacity:0;transition:opacity .15s ease;}
+.dc-item.on .dc-box{background:#6BE3A4;border-color:#6BE3A4;}
+.dc-item.on .dc-box svg{opacity:1;}
+.dc-text{font-size:15px;color:#FAFAFA;transition:color .15s ease;}
+.dc-item.on .dc-text{color:#76746E;text-decoration:line-through;text-decoration-color:#3A3A42;}
+.dc-week{display:flex;gap:6px;margin-top:14px;padding-top:12px;border-top:1px solid #1F1F23;}
+.dc-day{flex:1;text-align:center;}
+.dc-dot{width:100%;height:5px;border-radius:3px;background:#1F1F23;margin-bottom:5px;}
+.dc-dot.part{background:#2E5B44;}
+.dc-dot.full{background:#6BE3A4;}
+.dc-dl{font-size:9px;letter-spacing:0.08em;color:#5A5852;text-transform:uppercase;}
 </style>
 </head>
 <body>
@@ -642,6 +665,18 @@ body::after {
       <div class="day-ring-status"    id="dayRingStatus">Loading…</div>
       <div class="day-ring-remaining" id="dayRingRemaining">—</div>
       <div class="day-ring-hours">8:00 AM – 12:00 AM</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Daily</div>
+    <div class="dc-card">
+      <div class="dc-head">
+        <span class="dc-date" id="dcDate">Today</span>
+        <span class="dc-count" id="dcCount">0/0</span>
+      </div>
+      <div id="dcList"></div>
+      <div class="dc-week" id="dcWeek"></div>
     </div>
   </div>
 
@@ -1328,6 +1363,84 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 });
+</script>
+
+<script>
+/* ===== Daily checklist. Stored under goals:daily so it rides the existing sync. ===== */
+(function () {
+  'use strict';
+  var KEY = 'goals:daily';
+  var GYM_DAYS = [1, 2, 4, 5]; // Mon, Tue, Thu, Fri
+
+  var ITEMS = [
+    { id: 'bed',     group: 'Morning', text: 'Make bed' },
+    { id: 'teethAm', group: 'Morning', text: 'Brush teeth' },
+    { id: 'gym',     group: 'Morning', text: 'Gym', gymOnly: true },
+    { id: 'walk',    group: 'Morning', text: 'Walk to office' },
+    { id: 'food',    group: 'Evening', text: 'Ate whole foods only' },
+    { id: 'teethPm', group: 'Evening', text: 'Brush teeth' }
+  ];
+
+  function dk(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function today(){ return dk(new Date()); }
+  function load(){ try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e){ return {}; } }
+  function save(v){ localStorage.setItem(KEY, JSON.stringify(v)); }
+  function itemsFor(d){ var dow = d.getDay(); return ITEMS.filter(function(i){ return !i.gymOnly || GYM_DAYS.indexOf(dow) !== -1; }); }
+
+  function render(){
+    var all = load(), t = today(), day = all[t] || {};
+    var list = itemsFor(new Date());
+    var host = document.getElementById('dcList');
+    if (!host) return;
+    host.innerHTML = '';
+
+    var lastGroup = null;
+    list.forEach(function(item){
+      if (item.group !== lastGroup) {
+        var h = document.createElement('div');
+        h.className = 'dc-group'; h.textContent = item.group;
+        host.appendChild(h); lastGroup = item.group;
+      }
+      var row = document.createElement('div');
+      row.className = 'dc-item' + (day[item.id] ? ' on' : '');
+      row.innerHTML = '<span class="dc-box"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>'
+                    + '<span class="dc-text"></span>';
+      row.querySelector('.dc-text').textContent = item.text;
+      row.addEventListener('click', function(){ toggle(item.id); });
+      host.appendChild(row);
+    });
+
+    var done = list.filter(function(i){ return day[i.id]; }).length;
+    document.getElementById('dcCount').textContent = done + '/' + list.length;
+    document.getElementById('dcDate').textContent =
+      new Date().toLocaleDateString([], { weekday:'long', day:'numeric', month:'short' });
+
+    var wk = document.getElementById('dcWeek');
+    wk.innerHTML = '';
+    for (var i = 6; i >= 0; i--) {
+      var d = new Date(); d.setDate(d.getDate() - i);
+      var rec = all[dk(d)] || {}, need = itemsFor(d);
+      var n = need.filter(function(x){ return rec[x.id]; }).length;
+      var cls = n === 0 ? '' : (n >= need.length ? ' full' : ' part');
+      var cell = document.createElement('div');
+      cell.className = 'dc-day';
+      cell.innerHTML = '<div class="dc-dot' + cls + '"></div><div class="dc-dl">'
+        + ['S','M','T','W','T','F','S'][d.getDay()] + '</div>';
+      wk.appendChild(cell);
+    }
+  }
+
+  function toggle(id){
+    var all = load(), t = today();
+    if (!all[t]) all[t] = {};
+    if (all[t][id]) delete all[t][id]; else all[t][id] = 1;
+    save(all); render();
+  }
+
+  render();
+  window.addEventListener('goals-changed', render);
+  window.addEventListener('storage', render);
+})();
 </script>
 </body>
 </html>
