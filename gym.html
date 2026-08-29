@@ -3028,9 +3028,19 @@ img, video, canvas, svg { max-width: 100%; }
     else if (photos.length === 1) $('wtProgressCount').textContent = '1 photo · latest ' + photoFmtDate(photos[0].dateKey);
     else $('wtProgressCount').textContent = photos.length + ' photos · latest ' + photoFmtDate(photos[0].dateKey);
   }
+  // Progress photos stay on the device that took them.
+  //
+  // The Supabase bucket is public, and the anon key is embedded in this
+  // page, so anything uploaded there is readable by anyone who opens the
+  // dashboard URL. Physique photos are not going in it. Flipping this to
+  // false would need Supabase Auth on the dashboard first, not just a
+  // private bucket.
+  const PHOTOS_LOCAL_ONLY = true;
+
   // Upload a compressed data URL to the Supabase Storage bucket
   // 'progress-photos' and return its public URL (or null on failure).
   async function uploadPhotoToStorage(dataUrl) {
+    if (PHOTOS_LOCAL_ONLY) return null;
     if (!pcSupa) return null;
     try {
       const res = await fetch(dataUrl);
