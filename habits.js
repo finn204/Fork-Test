@@ -12,7 +12,7 @@
 
   window.HABIT_ITEMS = [
     /* --- weekly jobs --- */
-    { id:'mealprep', text:'Meal prep',      sub:'Venison, rice, veg. Five containers.', from:0, dow:[0], chore:true },
+    { id:'mealprep', text:'Meal prep',      sub:'Venison, rice, veg. Seven containers, covers the weekend.', from:0, dow:[0], chore:true },
     { id:'sheets',   text:'Change sheets',  from:0, dow:[6], chore:true },
     { id:'washing',  text:'Sort washing',   from:0, dow:[6], chore:true },
     { id:'vacuum',   text:'Vacuum room',    from:0, dow:[6], chore:true },
