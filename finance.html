@@ -1730,6 +1730,54 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   </div>
 </div>
 
+<!-- ===== SPENDING ===== -->
+<div class="section" data-section="spend">
+  <div class="section-title">
+    <span class="section-title-text">SPENDING</span>
+  </div>
+  <div class="card" style="background:transparent;border:none !important;box-shadow:none;padding:0;overflow:visible">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+      <div>
+        <div style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;font-weight:500">Spent this month</div>
+        <div id="spendMonthTotal" style="font-size:34px;font-weight:700;color:var(--text-primary);line-height:1.05;margin-top:2px">$0</div>
+        <div id="spendMonthNote" style="font-size:11px;color:var(--text-tertiary);margin-top:4px"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <select id="spendMonthSelect" style="background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit;cursor:pointer"></select>
+      </div>
+    </div>
+
+    <div class="nw-overview-grid">
+      <div class="nw-donut-wrap" style="grid-column:1/-1;max-width:100%">
+        <div class="nw-chart-head">
+          <span class="nw-chart-label">By category</span>
+          <span class="nw-chart-delta" id="spendCatCount">—</span>
+        </div>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center">
+          <div class="nw-donut-stage" style="flex-shrink:0">
+            <svg class="nw-donut-svg" id="spendDonutSvg" viewBox="0 0 140 140" aria-hidden="true"></svg>
+            <div class="nw-donut-center">
+              <div class="nw-donut-num" id="spendDonutTotal">—</div>
+              <div class="nw-donut-sub">total</div>
+            </div>
+          </div>
+          <div class="nw-donut-legend" id="spendDonutLegend" style="flex:1;min-width:200px;margin-top:0"></div>
+        </div>
+        <div class="nw-donut-empty" id="spendDonutEmpty">No spending recorded for this month</div>
+      </div>
+    </div>
+
+    <div class="nw-activity" id="spendActivity" style="margin-top:0">
+      <div class="nw-activity-h">
+        <span class="nw-chart-label">Transactions</span>
+        <span class="nw-chart-delta" id="spendActivityCount">—</span>
+      </div>
+      <div class="nw-activity-list" id="spendActivityList" style="max-height:340px"></div>
+      <div class="nw-activity-empty" id="spendActivityEmpty">No transactions this month.</div>
+    </div>
+  </div>
+</div>
+
 <!-- ===== ACTIVE SUBSCRIPTIONS ===== -->
 <div class="section" data-section="subs">
   <div class="section-title">
@@ -1874,6 +1922,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     <span class="bot-tab-icon">📊</span>
     <span class="bot-tab-label">Net Worth</span>
   </button>
+  <button class="bot-tab" data-tab="spend">
+    <span class="bot-tab-icon">💸</span>
+    <span class="bot-tab-label">Spending</span>
+  </button>
   <button class="bot-tab" data-tab="subs">
     <span class="bot-tab-icon">🔁</span>
     <span class="bot-tab-label">Subs</span>
@@ -1935,7 +1987,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
   tabs.forEach(b => b.addEventListener('click', () => setActiveTab(b.dataset.tab)));
   const savedTab = storeGet(TAB_KEY);
-  setActiveTab(savedTab && ['net','subs','incoming','wish'].includes(savedTab) ? savedTab : 'net');
+  setActiveTab(savedTab && ['net','spend','subs','incoming','wish'].includes(savedTab) ? savedTab : 'net');
 
   // ============================================================
   // NET WORTH (copied from the main dashboard, verbatim logic)
@@ -3381,11 +3433,134 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 </script>
 
 <script>
+(function () {
+  function storeGet(key) {
+    try { const raw = localStorage.getItem(key); return raw == null ? null : JSON.parse(raw); }
+    catch (e) { return null; }
+  }
+  function fmtMoney(n) {
+    return '$' + (Math.round(n * 100) / 100).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+  const PALETTE = {
+    'Bars & Nightlife': '#F2C063',
+    'Food & Takeout': '#6EE7B7',
+    'Transport & Fuel': '#7DD3FC',
+    'Travel & Trips': '#B794F4',
+    'Cash Withdrawal': '#94A3B8',
+    'Fitness & Sport': '#6BE3A4',
+    'Groceries': '#A3E635',
+    'Gambling': '#FF8A8A',
+    'Health': '#F472B6',
+    'Grooming': '#FDBA74',
+    'Shopping & Retail': '#60A5FA',
+    'Other': '#76746E',
+    'Family & Friends': '#8B8680'
+  };
+  function colorFor(cat) { return PALETTE[cat] || '#8B8680'; }
+
+  function monthLabel(ym) {
+    const [y, m] = ym.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  }
+
+  function renderSpend() {
+    const txns = storeGet('spend_txns') || [];
+    const sel = document.getElementById('spendMonthSelect');
+    if (!sel) return; // section not on this page
+
+    const months = [...new Set(txns.map(t => t.date.slice(0, 7)))].sort().reverse();
+    const prevVal = sel.value;
+    sel.innerHTML = months.map(m => `<option value="${m}">${monthLabel(m)}</option>`).join('');
+    const activeMonth = months.includes(prevVal) ? prevVal : (months[0] || '');
+    sel.value = activeMonth;
+
+    const monthTxns = txns.filter(t => t.date.slice(0, 7) === activeMonth)
+                           .sort((a, b) => b.date.localeCompare(a.date));
+    const total = monthTxns.reduce((s, t) => s + t.amount, 0);
+
+    document.getElementById('spendMonthTotal').textContent = months.length ? fmtMoney(total) : '$0';
+    document.getElementById('spendMonthNote').textContent = months.length
+      ? `${monthTxns.length} transactions — family/friend transfers and salary excluded`
+      : 'No spending data yet.';
+
+    // ---- donut ----
+    const byCat = {};
+    for (const t of monthTxns) byCat[t.category] = (byCat[t.category] || 0) + t.amount;
+    const catEntries = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+
+    const svg = document.getElementById('spendDonutSvg');
+    const legend = document.getElementById('spendDonutLegend');
+    const empty = document.getElementById('spendDonutEmpty');
+    const donutTotalEl = document.getElementById('spendDonutTotal');
+    const catCountEl = document.getElementById('spendCatCount');
+
+    donutTotalEl.textContent = catEntries.length ? fmtMoney(total) : '—';
+    catCountEl.textContent = catEntries.length ? catEntries.length + ' categories' : '—';
+
+    if (!catEntries.length) {
+      svg.innerHTML = '';
+      legend.innerHTML = '';
+      empty.style.display = 'flex';
+    } else {
+      empty.style.display = 'none';
+      const r = 54, cx = 70, cy = 70, circ = 2 * Math.PI * r;
+      let offset = 0;
+      let paths = '';
+      for (const [cat, amt] of catEntries) {
+        const frac = amt / total;
+        const dash = Math.max(frac * circ - 1.5, 0.5);
+        const gap = circ - dash;
+        paths += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${colorFor(cat)}" stroke-width="16" stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})"><title>${cat}: ${fmtMoney(amt)}</title></circle>`;
+        offset += frac * circ;
+      }
+      svg.innerHTML = paths;
+      legend.innerHTML = catEntries.map(([cat, amt]) => {
+        const pct = Math.round((amt / total) * 100);
+        return `<div class="nw-leg"><span class="nw-leg-dot" style="background:${colorFor(cat)};color:${colorFor(cat)}"></span><span class="nw-leg-name">${cat}</span><span class="nw-leg-pct">${fmtMoney(amt)} · ${pct}%</span></div>`;
+      }).join('');
+    }
+
+    // ---- activity feed ----
+    const list = document.getElementById('spendActivityList');
+    const listEmpty = document.getElementById('spendActivityEmpty');
+    const countEl = document.getElementById('spendActivityCount');
+    countEl.textContent = monthTxns.length ? monthTxns.length + ' txns' : '—';
+    if (!monthTxns.length) {
+      list.innerHTML = '';
+      listEmpty.style.display = 'block';
+    } else {
+      listEmpty.style.display = 'none';
+      list.innerHTML = monthTxns.map(t => {
+        const d = new Date(t.date + 'T00:00:00Z');
+        const dateStr = d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' });
+        return `<div class="nw-activity-row">
+          <div class="nw-activity-bar" style="background:${colorFor(t.category)};color:${colorFor(t.category)}"></div>
+          <div class="nw-activity-info">
+            <div class="nw-activity-name">${t.name}</div>
+            <div class="nw-activity-meta">${t.category}</div>
+          </div>
+          <div class="nw-activity-amt down">-${fmtMoney(t.amount)}</div>
+          <div class="nw-activity-date">${dateStr}</div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    renderSpend();
+    const sel = document.getElementById('spendMonthSelect');
+    if (sel) sel.addEventListener('change', renderSpend);
+  });
+  window.addEventListener('storage', renderSpend);
+})();
+</script>
+
+<script>
 document.addEventListener('DOMContentLoaded', function () {
   if (typeof initCloudSync !== 'function') return;
   initCloudSync({
     appKey: 'finance',
-    syncedKeys: ['subs', 'wishlist', 'incoming_orders', 'nw_currency', 'nw:activity', 'nw:history'],
+    syncedKeys: ['subs', 'wishlist', 'incoming_orders', 'nw_currency', 'nw:activity', 'nw:history', 'spend_txns'],
     syncedPrefixes: ['nw:'],
     onApplied: function () {
       window.dispatchEvent(new Event('storage'));
