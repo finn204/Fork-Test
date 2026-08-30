@@ -1,7 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="lock.js"></script>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <script src="/api/config"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -1266,6 +1269,7 @@ img, video, canvas, svg { max-width: 100%; }
 .hidden { display: none !important; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
 </head>
 <body>
 
@@ -3024,8 +3028,15 @@ img, video, canvas, svg { max-width: 100%; }
     else if (photos.length === 1) $('wtProgressCount').textContent = '1 photo · latest ' + photoFmtDate(photos[0].dateKey);
     else $('wtProgressCount').textContent = photos.length + ' photos · latest ' + photoFmtDate(photos[0].dateKey);
   }
-  // Upload a compressed data URL to the Supabase Storage bucket
-  // 'progress-photos' and return its public URL (or null on failure).
+  // Progress photos sync across devices but are NOT public.
+  //
+  // The bucket is private. We store only the object PATH, never a URL,
+  // and mint a short-lived signed URL at display time using the logged-in
+  // session (see auth.js). Nobody without the login can read them.
+  const PHOTO_SIGN_SECONDS = 60 * 60 * 24 * 7;
+
+  // Upload a compressed data URL to the private 'progress-photos' bucket
+  // and return its storage path (or null on failure).
   async function uploadPhotoToStorage(dataUrl) {
     if (!pcSupa) return null;
     try {
@@ -3037,9 +3048,24 @@ img, video, canvas, svg { max-width: 100%; }
         .from('progress-photos')
         .upload(filename, blob, { contentType: 'image/jpeg', upsert: false });
       if (error) return null;
-      const { data } = pcSupa.storage.from('progress-photos').getPublicUrl(filename);
-      return data ? data.publicUrl : null;
+      return filename;
     } catch (e) { return null; }
+  }
+
+  // Swap stored paths for fresh signed URLs so <img> tags can load them.
+  async function refreshPhotoUrls() {
+    if (!pcSupa) return;
+    const need = photos.filter((p) => p && p.path && !p.signedAt);
+    if (!need.length) return;
+    for (const p of need) {
+      try {
+        const { data, error } = await pcSupa.storage
+          .from('progress-photos')
+          .createSignedUrl(p.path, PHOTO_SIGN_SECONDS);
+        if (!error && data && data.signedUrl) { p.url = data.signedUrl; p.signedAt = Date.now(); }
+      } catch (e) {}
+    }
+    photosRender();
   }
 
   async function photosAdd(dataUrl) {
@@ -3069,13 +3095,14 @@ img, video, canvas, svg { max-width: 100%; }
     // drop the base64 dataUrl locally and push to sibling devices via the
     // normal sync path — only the URL ends up in the row, so the payload
     // stays tiny.
-    uploadPhotoToStorage(entry.dataUrl).then((url) => {
-      if (!url) return;
+    uploadPhotoToStorage(entry.dataUrl).then(async (path) => {
+      if (!path) return;
       const e = photos.find(p => p.id === id);
       if (!e) return;
-      e.url = url;
+      e.path = path;
       delete e.dataUrl;
       photosSave();
+      await refreshPhotoUrls();
       photosRender();
     });
   }
@@ -3354,8 +3381,8 @@ img, video, canvas, svg { max-width: 100%; }
         let val = JSON.parse(v);
         if (k === 'po_coach_photos' && Array.isArray(val)) {
           val = val
-            .filter((p) => p && p.url)
-            .map((p) => ({ id: p.id, url: p.url, dateKey: p.dateKey, weight: p.weight }));
+            .filter((p) => p && p.path)
+            .map((p) => ({ id: p.id, path: p.path, dateKey: p.dateKey, weight: p.weight }));
         }
         out[k] = val;
       } catch {}
@@ -3385,6 +3412,7 @@ img, video, canvas, svg { max-width: 100%; }
     try { renderAll(); } catch {}
     try { wtRender(); } catch {}
     try { photosRender(); } catch {}
+    try { refreshPhotoUrls(); } catch {}
   }
 
   function pcApplyRemoteState(remote) {
@@ -3395,12 +3423,13 @@ img, video, canvas, svg { max-width: 100%; }
       for (const k of PC_SYNCED_KEYS) {
         if (k === 'po_coach_photos') {
           // Merge: keep local dataUrl-only photos (not yet uploaded) +
-          // overlay the remote URL-based set.
+          // overlay the remote path-based set. Signed URLs are minted
+          // locally afterwards and never travel through sync.
           let localPhotos = [];
           try { localPhotos = JSON.parse(localStorage.getItem(k) || '[]'); } catch {}
           const remotePhotos = Array.isArray(remote[k]) ? remote[k] : [];
           const remoteIds = new Set(remotePhotos.map((p) => p && p.id));
-          const localOnly = localPhotos.filter((p) => p && !p.url && !remoteIds.has(p.id));
+          const localOnly = localPhotos.filter((p) => p && !p.path && !remoteIds.has(p.id));
           const merged = [...remotePhotos, ...localOnly];
           const incoming = JSON.stringify(merged);
           if (localStorage.getItem(k) !== incoming) {
@@ -3487,13 +3516,17 @@ img, video, canvas, svg { max-width: 100%; }
     if (!window.supabase || !SUPABASE_URL || !SUPABASE_KEY) return;
     // Skip if the placeholder values are still in place (local-only mode)
     if (SUPABASE_URL.indexOf('PASTE-') === 0 || SUPABASE_KEY.indexOf('PASTE-') === 0) return;
-    pcSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    pcSupa = (window.dashAuth && window.dashAuth.client)
+      ? window.dashAuth.client
+      : window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    try { refreshPhotoUrls(); } catch (e) {}
     try {
       const { data, error } = await pcSupa
         .from('app_state').select('data').eq('key', APP_KEY).maybeSingle();
       if (!error && data && data.data && Object.keys(data.data).length > 0) {
         pcLastSyncedJson = JSON.stringify(data.data);
         pcMaybeApplyRemote(data.data);
+        try { refreshPhotoUrls(); } catch (e) {}
       } else if (Object.keys(pcCollectState()).length > 0) {
         pcSchedulePush();
       }

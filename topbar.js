@@ -384,7 +384,9 @@ body.topbar-modal-open {
     if (TOPBAR_SUPABASE_URL.indexOf('PASTE-') === 0) return;
 
     try {
-      const supa = window.supabase.createClient(TOPBAR_SUPABASE_URL, TOPBAR_SUPABASE_KEY);
+      const supa = (window.dashAuth && window.dashAuth.client)
+        ? window.dashAuth.client
+        : window.supabase.createClient(TOPBAR_SUPABASE_URL, TOPBAR_SUPABASE_KEY);
       const { data } = await supa
         .from('app_state').select('data').eq('key', 'health').maybeSingle();
       const current = (data && data.data) || {};

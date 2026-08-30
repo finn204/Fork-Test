@@ -1,7 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="lock.js"></script>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#050506">
@@ -9,6 +12,7 @@
 
 <script src="/api/config"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
 <script src="topbar.js" defer></script>
 
 <style>
@@ -418,7 +422,9 @@ body::after {
   // Live refresh: if Claude updates the business row while this tab is open.
   if (window.supabase && SUPABASE_URL && SUPABASE_KEY) {
     try {
-      const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      const supa = (window.dashAuth && window.dashAuth.client)
+        ? window.dashAuth.client
+        : window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
       supa.channel('app_state_business')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state', filter: 'key=eq.business' }, function (payload) {
           if (payload.new && payload.new.data) render(payload.new.data);

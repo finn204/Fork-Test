@@ -1,7 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <meta charset="UTF-8" />
+<script src="/api/config"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Nova Lite · AI Mentor</title>
 <!-- ============================================================
@@ -82,6 +89,7 @@ body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; color: 
 .composer button { width: 50px; border: 0; border-radius: 12px; cursor: pointer; color: #04140d; background: var(--accent); font-size: 18px; }
 .composer button:active { transform: scale(.94); }
 </style>
+<script src="topbar.js" defer></script>
 </head>
 <body>
   <div class="wrap">
