@@ -923,6 +923,11 @@ main {
     .ah-manual-btn:active { transform: scale(0.99); }
     .ah-manual-saved { grid-column: 1 / -1; text-align: center; font-size: 11px; color: #6BE3A4; height: 14px; }
     @media (max-width: 420px) { .ah-manual { grid-template-columns: 1fr; } }
+    .ah-manual-override { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.05); }
+    .ah-manual-override summary { font-size: 11.5px; color: var(--text-tertiary); cursor: pointer; list-style: none; }
+    .ah-manual-override summary::-webkit-details-marker { display: none; }
+    .ah-manual-override summary:hover { color: var(--text-secondary); }
+    .ah-manual-override[open] summary { color: var(--text-secondary); margin-bottom: 4px; }
   </style>
   <div class="ah-section">
     <div class="section-title">Apple Health</div>
@@ -933,27 +938,35 @@ main {
         <div class="ah-stat"><div class="ah-stat-val" id="ahSleep">—</div><div class="ah-stat-label">Sleep last night</div></div>
       </div>
       <div class="ah-week" id="ahWeek"></div>
-      <div id="ahEmpty" class="ah-empty" style="display:none;">Nothing logged yet — fill in today's numbers below, or set up the Shortcut to skip typing them in.</div>
+      <div id="ahEmpty" class="ah-empty" style="display:none;">Nothing logged yet — weight below, steps &amp; sleep will fill in once the Shortcut's running.</div>
       <div class="ah-manual">
-        <div class="ah-manual-field"><label for="ahInSteps">Steps</label><input id="ahInSteps" type="number" inputmode="numeric" placeholder="e.g. 8200"></div>
-        <div class="ah-manual-field"><label for="ahInWeight">Weight (kg)</label><input id="ahInWeight" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 85.4"></div>
-        <div class="ah-manual-field"><label for="ahInSleep">Sleep (hrs)</label><input id="ahInSleep" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 7.5"></div>
-        <button class="ah-manual-btn" id="ahManualSave" type="button">Log today</button>
+        <div class="ah-manual-field"><label for="ahInWeight">Weight (kg) &middot; log every morning</label><input id="ahInWeight" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 85.4"></div>
+        <button class="ah-manual-btn" id="ahManualSave" type="button">Log today's weight</button>
         <div class="ah-manual-saved" id="ahManualSaved"></div>
       </div>
-      <button class="ah-setup-toggle" id="ahSetupToggle" type="button">Prefer it fully automatic? Set up the Shortcut ▾</button>
+      <details class="ah-manual-override">
+        <summary>Steps/sleep didn't sync today? Type them in manually</summary>
+        <div class="ah-manual" style="border-top:none; padding-top:12px; margin-top:12px;">
+          <div class="ah-manual-field"><label for="ahInSteps">Steps</label><input id="ahInSteps" type="number" inputmode="numeric" placeholder="e.g. 8200"></div>
+          <div class="ah-manual-field"><label for="ahInSleep">Sleep (hrs)</label><input id="ahInSleep" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 7.5"></div>
+          <button class="ah-manual-btn" id="ahManualSaveOverride" type="button">Save</button>
+        </div>
+      </details>
+      <button class="ah-setup-toggle" id="ahSetupToggle" type="button">Set up automatic steps &amp; sleep sync ▾</button>
       <div class="ah-setup" id="ahSetup" style="display:none;">
-        <p>This pulls from Apple Health via an iOS Shortcut you run once a day (or set to run automatically) — there's no direct web API into Health, so this is the real workaround. Takes ~5 min to set up:</p>
+        <p>Steps and sleep sync automatically from Apple Health via an iOS Shortcut — there's no direct web API into Health, so this is the real workaround. Weight is intentionally <b>not</b> part of this; log that manually above each morning. ~5 min to set up:</p>
         <ol>
           <li>Open the <b>Shortcuts</b> app → <b>+</b> to create a new shortcut.</li>
-          <li>Add these actions in order: <b>Find Health Samples</b> (Steps, today) → <b>Find Health Samples</b> (Weight, most recent) → <b>Find Health Samples</b> (Sleep Analysis, last night) — use <b>Calculate</b>/<b>Get Numbers from Input</b> to turn each into a plain number.</li>
-          <li>Add a <b>Text</b> action with this, filling in your actual numbers from the steps above in place of the 0s:
-            <span class="ah-code-block">{"secret":"tnXe1XJY8iymOfgo6JEc9kvKYZMA5D61","steps":0,"weightKg":0,"sleepHours":0}</span>
+          <li><b>Find Health Samples Where</b> → Type: <b>Steps</b> → filter: Start Date <b>is today</b> → leave the Limit toggle <b>off</b> (we want every sample, not just one).</li>
+          <li><b>Calculate Statistics</b> → Operation <b>Sum</b> → input the Health Samples from the step above. This is your total steps for today.</li>
+          <li><b>Find Health Samples Where</b> → Type: <b>Sleep Analysis</b> → filter: Start Date <b>is in the last 1 days</b> → Limit <b>off</b>.</li>
+          <li><b>Calculate Statistics</b> → Operation <b>Sum</b>, on <b>Duration</b> → input the sleep samples from the step above. This gives total sleep time — Shortcuts usually shows it as "X hr Y min"; if it doesn't come out as a plain number, tap the result variable and look for an option to express it in hours, or send Claude a screenshot.</li>
+          <li>Add a <b>Text</b> action with this, replacing the two 0s with the step-count and sleep-hours variables from above (tap into the text, tap where a 0 is, pick the matching variable):
+            <span class="ah-code-block">{"secret":"tnXe1XJY8iymOfgo6JEc9kvKYZMA5D61","steps":0,"sleepHours":0}</span>
           </li>
           <li>Add <b>Get Contents of URL</b>: URL <code>https://fork-test-rose.vercel.app/api/health-sync</code>, Method <b>POST</b>, Request Body <b>JSON</b> set to the Text from the previous step.</li>
-          <li>Rename the shortcut (e.g. "Sync Health") → open the <b>Automation</b> tab → <b>+</b> → <b>Time of Day</b> (e.g. 9pm daily) → <b>Run Immediately</b> so it doesn't ask each time → choose this shortcut.</li>
+          <li>Rename the shortcut (e.g. "Sync Health") → <b>Automation</b> tab → <b>+</b> → <b>Time of Day</b> (e.g. 9pm daily) → <b>Run Immediately</b> so it doesn't ask each time → choose this shortcut.</li>
         </ol>
-        <p>Only send whichever of steps/weight/sleep you actually have that day — the endpoint accepts any subset. Ask Claude if a step doesn't line up with what's in your Shortcuts app.</p>
       </div>
     </div>
   </div>
@@ -1026,14 +1039,14 @@ main {
       this.textContent = 'Prefer it fully automatic? Set up the Shortcut ' + (open ? '▾' : '▴');
     });
 
-    $('ahManualSave').addEventListener('click', function () {
+    function saveEntry(fields) {
       var days = loadDays();
       var todayKey = dateKey(new Date());
       var entry = days[todayKey] || {};
-      var sVal = $('ahInSteps').value, wVal = $('ahInWeight').value, slVal = $('ahInSleep').value;
-      if (sVal !== '') entry.steps = Number(sVal);
-      if (wVal !== '') entry.weightKg = Number(wVal);
-      if (slVal !== '') entry.sleepHours = Number(slVal);
+      Object.keys(fields).forEach(function (k) {
+        var v = fields[k];
+        if (v !== '') entry[k] = Number(v);
+      });
       entry.syncedAt = new Date().toISOString();
       days[todayKey] = entry;
       localStorage.setItem('ah:days', JSON.stringify(days));
@@ -1041,6 +1054,13 @@ main {
       var saved = $('ahManualSaved');
       saved.textContent = 'Saved ✓';
       setTimeout(function () { if (saved.textContent === 'Saved ✓') saved.textContent = ''; }, 2000);
+    }
+
+    $('ahManualSave').addEventListener('click', function () {
+      saveEntry({ weightKg: $('ahInWeight').value });
+    });
+    $('ahManualSaveOverride').addEventListener('click', function () {
+      saveEntry({ steps: $('ahInSteps').value, sleepHours: $('ahInSleep').value });
     });
 
     renderAppleHealth();
