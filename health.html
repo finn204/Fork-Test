@@ -595,11 +595,50 @@ main {
   <script>
   (function () {
     var $ = function (id) { return document.getElementById(id); };
-    function loadDays() { try { return JSON.parse(localStorage.getItem('ah:days')) || {}; } catch (e) { return {}; } }
     function dateKey(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 
+    // Lives on its own 'apple_health' app_state row, read/written
+    // directly via Supabase REST — deliberately NOT going through
+    // sync.js/localStorage, because the Water Tracker iframe on this
+    // same page runs an independent sync.js instance against the
+    // shared 'health' row and blindly replaces that row's entire
+    // contents on every push. A second independent writer sharing
+    // that row is exactly what made synced steps/sleep vanish
+    // shortly after landing. This row has exactly one writer path.
+    var SUPABASE_URL = (typeof window !== 'undefined' && window.DASH_SUPABASE_URL) || '';
+    var SUPABASE_KEY = (typeof window !== 'undefined' && window.DASH_SUPABASE_KEY) || '';
+    var cachedDays = {};
+
+    function fetchDays() {
+      if (!SUPABASE_URL || !SUPABASE_KEY) return Promise.resolve({});
+      return fetch(SUPABASE_URL + '/rest/v1/app_state?key=eq.apple_health&select=data', {
+        headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY }
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (rows) { return (rows && rows[0] && rows[0].data && rows[0].data.days) || {}; })
+        .catch(function () { return {}; });
+    }
+
+    // Read-merge-write so a save here can never clobber what the
+    // Shortcut wrote (or vice versa) even if they land close together.
+    function saveDays(mutate) {
+      return fetchDays().then(function (days) {
+        mutate(days);
+        cachedDays = days;
+        if (!SUPABASE_URL || !SUPABASE_KEY) return;
+        return fetch(SUPABASE_URL + '/rest/v1/app_state?on_conflict=key', {
+          method: 'POST',
+          headers: {
+            apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY,
+            'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify({ key: 'apple_health', data: { days: days }, updated_at: new Date().toISOString() })
+        }).catch(function () {});
+      });
+    }
+
     function renderAppleHealth() {
-      var days = loadDays();
+      var days = cachedDays;
       var keys = Object.keys(days);
       $('ahEmpty').style.display = keys.length ? 'none' : '';
 
@@ -662,20 +701,21 @@ main {
     });
 
     function saveEntry(fields) {
-      var days = loadDays();
       var todayKey = dateKey(new Date());
-      var entry = days[todayKey] || {};
-      Object.keys(fields).forEach(function (k) {
-        var v = fields[k];
-        if (v !== '') entry[k] = Number(v);
+      saveDays(function (days) {
+        var entry = days[todayKey] || {};
+        Object.keys(fields).forEach(function (k) {
+          var v = fields[k];
+          if (v !== '') entry[k] = Number(v);
+        });
+        entry.syncedAt = new Date().toISOString();
+        days[todayKey] = entry;
+      }).then(function () {
+        renderAppleHealth();
+        var saved = $('ahManualSaved');
+        saved.textContent = 'Saved ✓';
+        setTimeout(function () { if (saved.textContent === 'Saved ✓') saved.textContent = ''; }, 2000);
       });
-      entry.syncedAt = new Date().toISOString();
-      days[todayKey] = entry;
-      localStorage.setItem('ah:days', JSON.stringify(days));
-      renderAppleHealth();
-      var saved = $('ahManualSaved');
-      saved.textContent = 'Saved ✓';
-      setTimeout(function () { if (saved.textContent === 'Saved ✓') saved.textContent = ''; }, 2000);
     }
 
     $('ahManualSave').addEventListener('click', function () {
@@ -685,8 +725,22 @@ main {
       saveEntry({ steps: $('ahInSteps').value, sleepHours: $('ahInSleep').value });
     });
 
-    renderAppleHealth();
-    window.__renderAppleHealth = renderAppleHealth;
+    fetchDays().then(function (days) { cachedDays = days; renderAppleHealth(); });
+
+    // Live refresh when the Shortcut (or another tab) writes new data.
+    if (window.supabase && SUPABASE_URL && SUPABASE_KEY) {
+      try {
+        var supa = (window.dashAuth && window.dashAuth.client)
+          ? window.dashAuth.client
+          : window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        supa.channel('app_state_apple_health')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state', filter: 'key=eq.apple_health' }, function (payload) {
+            cachedDays = (payload.new && payload.new.data && payload.new.data.days) || {};
+            renderAppleHealth();
+          })
+          .subscribe();
+      } catch (e) {}
+    }
   })();
   </script>
 
@@ -696,20 +750,6 @@ main {
   </section>
 
 </main>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  if (typeof initCloudSync !== 'function') return;
-  initCloudSync({
-    appKey: 'health',
-    syncedKeys: ['ah:days'],
-    onApplied: function () {
-      window.dispatchEvent(new Event('storage'));
-      if (typeof window.__renderAppleHealth === 'function') window.__renderAppleHealth();
-    }
-  });
-});
-</script>
 
 </body>
 </html>

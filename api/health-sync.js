@@ -7,11 +7,17 @@
 // Auth dance), so it's guarded by a shared secret instead of a
 // user session, same idea as a webhook.
 //
-// Merges into the same 'health' app_state row health.html reads,
-// under an 'ah:days' key (date -> metrics), so it rides along
-// with the existing sync.js pull on page load. Does a
-// read-merge-write rather than a blind upsert so it never clobbers
-// the supplement-stack / water data already living in that row.
+// Writes to its OWN app_state row — key 'apple_health', NOT the
+// shared 'health' row — because the Water Tracker iframe embedded
+// in health.html runs its own independent sync.js instance against
+// 'health' with a syncedKeys list that doesn't know about Apple
+// Health data, and blindly replaces that row's entire contents on
+// every push. Sharing a row with any other independent writer is
+// exactly what caused synced steps/sleep to vanish shortly after
+// landing. This row is written only here and read directly by
+// health.html (no sync.js involved), so nothing else can touch it.
+// Does a read-merge-write (not a blind upsert) so multiple days
+// accumulate instead of only the latest day surviving.
 //
 // Body parsing is manual (bodyParser disabled below) because the
 // Shortcuts "Text" action, when a variable it's inserting turns out
@@ -82,15 +88,15 @@ export default async function handler(req, res) {
 
   try {
     const { data: row } = await supabase
-      .from('app_state').select('data').eq('key', 'health').maybeSingle();
+      .from('app_state').select('data').eq('key', 'apple_health').maybeSingle();
     const current = (row && row.data) || {};
-    const days = (current['ah:days'] && typeof current['ah:days'] === 'object') ? current['ah:days'] : {};
+    const days = (current.days && typeof current.days === 'object') ? current.days : {};
     days[date] = Object.assign({}, days[date] || {}, metrics);
 
-    const nextData = Object.assign({}, current, { 'ah:days': days });
+    const nextData = Object.assign({}, current, { days });
 
     const { error: upErr } = await supabase.from('app_state').upsert(
-      { key: 'health', data: nextData, updated_at: new Date().toISOString() },
+      { key: 'apple_health', data: nextData, updated_at: new Date().toISOString() },
       { onConflict: 'key' }
     );
     if (upErr) return res.status(500).json({ error: upErr.message });
