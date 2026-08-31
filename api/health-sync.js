@@ -12,13 +12,36 @@
 // with the existing sync.js pull on page load. Does a
 // read-merge-write rather than a blind upsert so it never clobbers
 // the supplement-stack / water data already living in that row.
+//
+// Body parsing is manual (bodyParser disabled below) because the
+// Shortcuts "Text" action, when a variable it's inserting turns out
+// to be empty (e.g. no sleep samples that night), just leaves a gap
+// rather than substituting null/0 — producing invalid JSON like
+// {"steps":7724,"sleepHours":}. Rather than have that silently fail
+// the whole day's sync (steps included), we sanitize obviously-empty
+// "key": slots out of the raw text before parsing.
 // ============================================================
 import { createClient } from '@supabase/supabase-js';
+
+export const config = { api: { bodyParser: false } };
 
 function todayNZ() {
   // Shortcuts sends whatever local date the phone is on; this is
   // just the fallback if 'date' is omitted.
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' }); // YYYY-MM-DD
+}
+
+async function readRawBody(req) {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+// Strips "key": slots with nothing (or only whitespace) before the
+// next , or } — i.e. a variable that came through empty — so the
+// rest of the payload still parses instead of the whole request dying.
+function sanitizeJson(raw) {
+  return raw.replace(/,?\s*"[^"]+"\s*:\s*(?=[,}])/g, '');
 }
 
 export default async function handler(req, res) {
@@ -35,8 +58,10 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'server not configured' });
   }
 
-  let body = req.body;
-  if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
+  const raw = await readRawBody(req);
+  let body;
+  try { body = JSON.parse(raw); }
+  catch { try { body = JSON.parse(sanitizeJson(raw)); } catch { body = {}; } }
   body = body || {};
 
   if (body.secret !== secret) return res.status(401).json({ error: 'bad secret' });
