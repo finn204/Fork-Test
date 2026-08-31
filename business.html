@@ -223,6 +223,37 @@ body::after {
 .ql-day.partial { background: rgba(242,192,99,0.10); border-color: rgba(242,192,99,0.3); color: var(--warning); }
 .ql-day.today { box-shadow: 0 0 0 1.5px rgba(255,255,255,0.5) inset; }
 
+.ql-num.pop { animation: ql-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes ql-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+.ql-confetti-wrap {
+  position: absolute; inset: 0; overflow: visible; pointer-events: none; z-index: 5;
+}
+.ql-confetti-piece {
+  position: absolute; top: 50%; left: 50%; width: 7px; height: 7px; border-radius: 2px;
+  opacity: 1; animation: ql-confetti-fly 0.9s ease-out forwards;
+}
+@keyframes ql-confetti-fly {
+  0%   { transform: translate(-50%, -50%) rotate(0deg) scale(1); opacity: 1; }
+  100% { transform: translate(var(--qx), var(--qy)) rotate(var(--qr)) scale(0.4); opacity: 0; }
+}
+.ql-goal-toast {
+  position: absolute; left: 50%; top: -14px; transform: translate(-50%, -100%);
+  background: linear-gradient(180deg, #FFF, #E8E5DD); color: #0A0A0B;
+  font-size: 12.5px; font-weight: 700; padding: 8px 16px; border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5); white-space: nowrap;
+  opacity: 0; animation: ql-toast 2.2s ease-out forwards; z-index: 6;
+}
+@keyframes ql-toast {
+  0%   { opacity: 0; transform: translate(-50%, -80%) scale(0.85); }
+  15%  { opacity: 1; transform: translate(-50%, -110%) scale(1); }
+  80%  { opacity: 1; transform: translate(-50%, -110%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -130%) scale(0.95); }
+}
+
 @media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
   .gm-card { padding: 16px; }
@@ -238,12 +269,14 @@ body::after {
 
   <div class="section">
     <div class="section-title">Qualified Leads Today</div>
-    <div class="gm-card">
+    <div class="gm-card" style="overflow:visible;">
       <div class="ql-row">
-        <div class="ql-stepper">
+        <div class="ql-stepper" style="position:relative;">
           <button class="ql-btn" id="qlMinus">&minus;</button>
           <div class="ql-num" id="qlNum">0</div>
           <button class="ql-btn" id="qlPlus">&plus;</button>
+          <div class="ql-confetti-wrap" id="qlConfetti"></div>
+          <div id="qlToastSlot"></div>
         </div>
         <div>
           <div class="ql-goal-label">Goal: 3 QLs / day</div>
@@ -526,6 +559,8 @@ body::after {
   'use strict';
   var LOG_KEY = 'ql:log';
   var GOAL = 3;
+  var MAX_PER_DAY = 20;
+  var CONFETTI_COLORS = ['#6BE3A4', '#60A5FA', '#F2C063', '#FF6B6B', '#C9A36B', '#FAFAFA'];
 
   function todayKey() {
     var d = new Date();
@@ -583,12 +618,52 @@ body::after {
     weekEl.innerHTML = html;
   }
 
+  function confettiBurst(big) {
+    var wrap = document.getElementById('qlConfetti');
+    if (!wrap) return;
+    var n = big ? 26 : 12;
+    for (var i = 0; i < n; i++) {
+      var piece = document.createElement('div');
+      piece.className = 'ql-confetti-piece';
+      var angle = Math.random() * Math.PI * 2;
+      var dist = (big ? 70 : 40) + Math.random() * (big ? 60 : 30);
+      piece.style.setProperty('--qx', (Math.cos(angle) * dist) + 'px');
+      piece.style.setProperty('--qy', (Math.sin(angle) * dist - (big ? 20 : 10)) + 'px');
+      piece.style.setProperty('--qr', (Math.random() * 720 - 360) + 'deg');
+      piece.style.background = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+      piece.style.animationDelay = (Math.random() * 0.08) + 's';
+      wrap.appendChild(piece);
+      (function (el) { setTimeout(function () { el.remove(); }, 1100); })(piece);
+    }
+  }
+
+  function celebrate(justHitGoal) {
+    var numEl = document.getElementById('qlNum');
+    numEl.classList.remove('pop');
+    void numEl.offsetWidth; // restart the animation if it's still mid-run
+    numEl.classList.add('pop');
+    confettiBurst(justHitGoal);
+    if (justHitGoal) {
+      var slot = document.getElementById('qlToastSlot');
+      slot.innerHTML = '<div class="ql-goal-toast">🎉 Goal hit — nice work!</div>';
+      setTimeout(function () { slot.innerHTML = ''; }, 2200);
+    }
+    if (navigator.vibrate) {
+      try { navigator.vibrate(justHitGoal ? [30, 40, 30, 40, 60] : 25); } catch (e) {}
+    }
+  }
+
   function bump(delta) {
     var log = loadLog();
     var tKey = todayKey();
-    log[tKey] = Math.max(0, (log[tKey] || 0) + delta);
+    var before = log[tKey] || 0;
+    var after = Math.min(MAX_PER_DAY, Math.max(0, before + delta));
+    log[tKey] = after;
     saveLog(log);
     renderQL();
+    if (delta > 0 && after > before) {
+      celebrate(before < GOAL && after >= GOAL);
+    }
   }
 
   document.getElementById('qlPlus').addEventListener('click', function () { bump(1); });
