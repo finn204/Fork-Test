@@ -2,11 +2,10 @@
 // Persistent dashboard top bar.
 // Drop this on any page with:
 //     <script src="topbar.js" defer></script>
-// It self-injects HTML + CSS, reads progress from the same
-// localStorage keys the dashboard's tabs already use, and a
-// water "+1" button writes to localStorage and (if configured)
-// pushes a merged update to the Supabase health row so the
-// new bottle appears on every device within ~1 second.
+// Self-injects the top bar (bell + Finance shortcut) and bottom
+// tab bar. The bell button doubles as the push-notification
+// opt-in: tap once to subscribe, tap again (once subscribed) to
+// fire a test notification through /api/send-push.
 // =============================================================
 (function () {
   'use strict';
@@ -38,6 +37,36 @@
   filter: grayscale(100%) brightness(1.4);
   opacity: 0.85;
 }
+.topbar-bell-btn {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, transform 0.1s;
+  font-family: inherit;
+  padding: 0;
+}
+.topbar-bell-btn:hover { background: rgba(255, 255, 255, 0.08); }
+.topbar-bell-btn:active { transform: scale(0.94); }
+.topbar-bell-icon {
+  font-size: 19px; line-height: 1;
+  filter: grayscale(100%) brightness(1.4);
+  opacity: 0.85;
+}
+.topbar-bell-btn.on .topbar-bell-icon { filter: none; opacity: 1; }
+.topbar-bell-dot {
+  position: absolute; top: 7px; right: 7px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #6BE3A4;
+  box-shadow: 0 0 6px rgba(107, 227, 164, 0.65);
+  display: none;
+}
+.topbar-bell-btn.on .topbar-bell-dot { display: block; }
+.topbar-bell-btn.busy { opacity: 0.6; pointer-events: none; }
 
 /* Bottom tab bar — Instagram-style */
 .bottombar {
@@ -82,6 +111,7 @@ body.has-bottombar {
 
 @media (max-width: 480px) {
   .topbar { padding-left: 10px; padding-right: 10px; gap: 6px; }
+  .topbar-bell-btn { width: 40px; height: 38px; }
   .topbar-finance-btn { width: 40px; height: 38px; }
   .topbar-finance-icon { font-size: 18px; }
   .bottombar-tab-icon { font-size: 22px; }
@@ -137,6 +167,10 @@ body.topbar-modal-open {
   // -------- HTML --------
   const topbarHtml = `
 <header class="topbar" id="topbar" role="navigation" aria-label="Quick actions">
+  <button class="topbar-bell-btn" id="topbarBell" type="button" aria-label="Notifications">
+    <span class="topbar-bell-icon">🔔</span>
+    <span class="topbar-bell-dot"></span>
+  </button>
   <a href="finance.html" class="topbar-finance-btn" id="topbarFinance" aria-label="Finance">
     <span class="topbar-finance-icon">📊</span>
   </a>
@@ -282,9 +316,111 @@ body.topbar-modal-open {
     sync();
   }
 
+  // -------- Push notifications --------
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    const out = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; i++) out[i] = rawData.charCodeAt(i);
+    return out;
+  }
+
+  function pushSupported() {
+    return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  }
+
+  async function getAuthToken() {
+    if (window.dashAuthReady) { try { await window.dashAuthReady; } catch (e) {} }
+    if (!window.dashAuth || !window.dashAuth.client) return null;
+    try {
+      const { data } = await window.dashAuth.client.auth.getSession();
+      return data && data.session ? data.session.access_token : null;
+    } catch (e) { return null; }
+  }
+
+  async function getExistingSubscription() {
+    if (!pushSupported()) return null;
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) return null;
+      return await reg.pushManager.getSubscription();
+    } catch (e) { return null; }
+  }
+
+  function setBellUI(on) {
+    const btn = document.getElementById('topbarBell');
+    if (btn) btn.classList.toggle('on', !!on);
+  }
+
+  async function refreshBellUI() {
+    setBellUI(!!(await getExistingSubscription()));
+  }
+
+  async function subscribeToPush() {
+    if (!pushSupported()) { alert("This browser doesn't support push notifications."); return; }
+    const vapidKey = window.DASH_VAPID_PUBLIC_KEY;
+    if (!vapidKey) { alert('Push notifications are not configured on the server yet.'); return; }
+
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return;
+
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+    }
+
+    const token = await getAuthToken();
+    if (!token) { alert('Sign in to the dashboard first, then try again.'); return; }
+
+    await fetch('/api/push-subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ subscription: sub.toJSON() }),
+    });
+    setBellUI(true);
+  }
+
+  async function sendTestPush() {
+    const token = await getAuthToken();
+    if (!token) { alert('Sign in to the dashboard first, then try again.'); return; }
+    const r = await fetch('/api/send-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ title: "Finn's Dashboard", body: 'Notifications are working 🎉', url: '/' }),
+    });
+    try {
+      const j = await r.json();
+      if (!r.ok) alert('Could not send: ' + (j.error || r.status));
+    } catch (e) {}
+  }
+
+  function wireBell() {
+    const btn = document.getElementById('topbarBell');
+    if (!btn) return;
+    refreshBellUI();
+    btn.addEventListener('click', async () => {
+      btn.classList.add('busy');
+      try {
+        const existing = await getExistingSubscription();
+        if (existing) await sendTestPush();
+        else await subscribeToPush();
+      } finally {
+        btn.classList.remove('busy');
+      }
+    });
+  }
+
   // -------- Boot --------
   function boot() {
     injectStyleAndHTML();
+    wireBell();
     lockGestures();
     startModalLock();
   }
