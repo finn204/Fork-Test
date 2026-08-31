@@ -142,6 +142,17 @@ body::after {
 }
 .gm-streak.good { color: var(--success); border-color: rgba(107,227,164,0.3); }
 .gm-streak.bad  { color: var(--danger);  border-color: rgba(255,107,107,0.3); }
+.gm-streak.warn { color: var(--warning); border-color: rgba(242,192,99,0.3); }
+
+.gm-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; padding: 12px 0;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.gm-row:first-child { border-top: none; padding-top: 0; }
+.gm-row-body { min-width: 0; }
+.gm-row-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.gm-row-meta { font-size: 11.5px; color: var(--text-tertiary); margin-top: 3px; line-height: 1.5; }
 
 .stat-grid {
   display: grid;
@@ -257,9 +268,41 @@ body::after {
 
     contentEl.innerHTML =
       renderOverviewSection(row.clients) +
+      renderCurrentSection(row.current) +
       renderSoldSection(row.clients, row.sales) +
       renderRiskSection(row.clients, row.churn) +
       renderBankSection(row.bank, row.bank_refreshed_at);
+  }
+
+  const TYPE_META = {
+    todo:    { pill: 'To Do',    cls: 'warn' },
+    waiting: { pill: 'Waiting',  cls: 'warn' },
+    watch:   { pill: 'Watch',    cls: 'good' },
+    lost:    { pill: 'Lost',     cls: 'bad'  }
+  };
+
+  function renderCurrentSection(current) {
+    const items = current || [];
+    if (!items.length) return '';
+    const sorted = items.slice().sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+
+    let rows = '';
+    sorted.forEach(function (it) {
+      const meta = TYPE_META[it.type] || { pill: it.type || '', cls: '' };
+      rows +=
+        '<div class="gm-row">' +
+          '<div class="gm-row-body"><div class="gm-row-name">' + it.name + '</div>' +
+          '<div class="gm-row-meta">' + it.note + (it.ts ? ' &middot; ' + timeAgo(it.ts) : '') + '</div></div>' +
+          '<span class="gm-streak ' + meta.cls + '" style="flex-shrink:0;">' + meta.pill + '</span>' +
+        '</div>';
+    });
+
+    return (
+      '<div class="section">' +
+        '<div class="section-title">Current Things</div>' +
+        '<div class="gm-card">' + rows + '</div>' +
+      '</div>'
+    );
   }
 
   function renderOverviewSection(c) {
