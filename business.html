@@ -13,6 +13,7 @@
 <script src="/api/config"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="auth.js"></script>
+<script src="sync.js"></script>
 <script src="topbar.js" defer></script>
 
 <style>
@@ -198,6 +199,30 @@ body::after {
   color: var(--text-tertiary); padding: 24px 0;
 }
 
+.ql-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.ql-stepper { display: flex; align-items: center; gap: 14px; }
+.ql-btn {
+  width: 40px; height: 40px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05); color: var(--text-primary);
+  font-size: 20px; font-weight: 700; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, transform 0.1s;
+}
+.ql-btn:active { transform: scale(0.92); background: rgba(255,255,255,0.1); }
+.ql-num { font-size: 42px; font-weight: 700; color: var(--text-primary); min-width: 46px; text-align: center; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+.ql-num.hit { color: var(--success); }
+.ql-goal-label { font-size: 11px; color: var(--text-tertiary); letter-spacing: 0.08em; text-transform: uppercase; }
+.ql-week { display: flex; gap: 6px; margin-top: 16px; }
+.ql-day {
+  flex: 1; height: 34px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10.5px; font-weight: 700; color: var(--text-tertiary);
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+}
+.ql-day.hit { background: rgba(107,227,164,0.14); border-color: rgba(107,227,164,0.35); color: var(--success); }
+.ql-day.partial { background: rgba(242,192,99,0.10); border-color: rgba(242,192,99,0.3); color: var(--warning); }
+.ql-day.today { box-shadow: 0 0 0 1.5px rgba(255,255,255,0.5) inset; }
+
 @media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
   .gm-card { padding: 16px; }
@@ -210,6 +235,24 @@ body::after {
 
   <h1 class="dash-title">Business</h1>
   <p class="dash-sub" id="refreshedAt">Loading…</p>
+
+  <div class="section">
+    <div class="section-title">Qualified Leads Today</div>
+    <div class="gm-card">
+      <div class="ql-row">
+        <div class="ql-stepper">
+          <button class="ql-btn" id="qlMinus">&minus;</button>
+          <div class="ql-num" id="qlNum">0</div>
+          <button class="ql-btn" id="qlPlus">&plus;</button>
+        </div>
+        <div>
+          <div class="ql-goal-label">Goal: 3 QLs / day</div>
+          <span class="gm-streak" id="qlStreakBadge" style="margin-top:6px;">no streak yet</span>
+        </div>
+      </div>
+      <div class="ql-week" id="qlWeek"></div>
+    </div>
+  </div>
 
   <div id="content">
     <div class="empty-state">Loading business data…</div>
@@ -474,6 +517,87 @@ body::after {
         })
         .subscribe();
     } catch (e) {}
+  }
+})();
+</script>
+
+<script>
+(function () {
+  'use strict';
+  var LOG_KEY = 'ql:log';
+  var GOAL = 3;
+
+  function todayKey() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function loadLog() {
+    try { return JSON.parse(localStorage.getItem(LOG_KEY)) || {}; } catch (e) { return {}; }
+  }
+  function saveLog(log) {
+    localStorage.setItem(LOG_KEY, JSON.stringify(log));
+  }
+
+  function renderQL() {
+    var log = loadLog();
+    var tKey = todayKey();
+    var todayCount = log[tKey] || 0;
+
+    var numEl = document.getElementById('qlNum');
+    numEl.textContent = todayCount;
+    numEl.classList.toggle('hit', todayCount >= GOAL);
+
+    // Streak: consecutive days (walking back from today) hitting goal.
+    // Today only counts toward the streak once it's hit; otherwise we start counting from yesterday.
+    var streak = 0;
+    var d = new Date();
+    if (todayCount < GOAL) d.setDate(d.getDate() - 1);
+    while (true) {
+      var k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      if ((log[k] || 0) >= GOAL) { streak++; d.setDate(d.getDate() - 1); } else break;
+    }
+    var badge = document.getElementById('qlStreakBadge');
+    if (streak > 0) {
+      badge.textContent = '🔥 ' + streak + ' day' + (streak === 1 ? '' : 's') + ' streak';
+      badge.className = 'gm-streak good';
+    } else {
+      badge.textContent = 'no streak yet';
+      badge.className = 'gm-streak';
+    }
+
+    // Last 7 days strip (oldest to newest, ending today).
+    var weekEl = document.getElementById('qlWeek');
+    var html = '';
+    for (var i = 6; i >= 0; i--) {
+      var dd = new Date();
+      dd.setDate(dd.getDate() - i);
+      var dk = dd.getFullYear() + '-' + String(dd.getMonth() + 1).padStart(2, '0') + '-' + String(dd.getDate()).padStart(2, '0');
+      var count = log[dk] || 0;
+      var cls = 'ql-day';
+      if (count >= GOAL) cls += ' hit';
+      else if (count > 0) cls += ' partial';
+      if (dk === tKey) cls += ' today';
+      var label = dd.toLocaleDateString([], { weekday: 'narrow' });
+      html += '<div class="' + cls + '" title="' + dk + ': ' + count + '">' + label + '</div>';
+    }
+    weekEl.innerHTML = html;
+  }
+
+  function bump(delta) {
+    var log = loadLog();
+    var tKey = todayKey();
+    log[tKey] = Math.max(0, (log[tKey] || 0) + delta);
+    saveLog(log);
+    renderQL();
+  }
+
+  document.getElementById('qlPlus').addEventListener('click', function () { bump(1); });
+  document.getElementById('qlMinus').addEventListener('click', function () { bump(-1); });
+
+  renderQL();
+
+  if (window.initCloudSync) {
+    window.initCloudSync({ appKey: 'ql', syncedKeys: [LOG_KEY], onApplied: renderQL });
   }
 })();
 </script>
