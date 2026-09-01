@@ -345,9 +345,41 @@ body::after {
     contentEl.innerHTML =
       renderOverviewSection(row.clients) +
       renderCurrentSection(row.current) +
+      renderStaleSection(row.stale_tasks) +
       renderSoldSection(row.clients, row.sales) +
       renderRiskSection(row.clients, row.churn) +
       renderBankSection(row.bank, row.bank_refreshed_at);
+  }
+
+  function overdueLabel(dueDate) {
+    const days = Math.floor((Date.now() - new Date(dueDate + 'T00:00:00Z').getTime()) / 86400000);
+    if (days < 30) return days + 'd overdue';
+    if (days < 60) return '1mo overdue';
+    return Math.floor(days / 30) + 'mo overdue';
+  }
+
+  function renderStaleSection(tasks) {
+    const items = tasks || [];
+    if (!items.length) return '';
+    const sorted = items.slice().sort(function (a, b) { return a.dueDate.localeCompare(b.dueDate); });
+
+    let rows = '';
+    sorted.forEach(function (t) {
+      rows +=
+        '<div class="gm-row">' +
+          '<div class="gm-row-body"><div class="gm-row-name">' + t.name + '</div>' +
+          '<div class="gm-row-meta">&ldquo;' + t.title + '&rdquo;' + (t.assignee ? ' &middot; ' + t.assignee : '') + '</div></div>' +
+          '<span class="gm-streak bad" style="flex-shrink:0;">' + overdueLabel(t.dueDate) + '</span>' +
+        '</div>';
+    });
+
+    return (
+      '<div class="section">' +
+        '<div class="section-title">Stale CRM Follow-ups (' + items.length + ')</div>' +
+        '<div class="gm-card" style="max-height:360px;overflow-y:auto;">' + rows + '</div>' +
+        '<div class="progress-caption" style="margin-top:-6px;margin-bottom:14px;">Snapshot from HighLevel &mdash; ask me to re-check the CRM to refresh this list.</div>' +
+      '</div>'
+    );
   }
 
   const TYPE_META = {

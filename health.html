@@ -560,6 +560,15 @@ main {
         <div class="ah-stat"><div class="ah-stat-val" id="ahSleep">—</div><div class="ah-stat-label">Sleep last night</div></div>
       </div>
       <div class="ah-week" id="ahWeek"></div>
+
+      <div id="ahWeightChartWrap" style="margin-top:18px; padding-top:18px; border-top:1px solid rgba(255,255,255,0.05); display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
+          <span style="font-size:10px; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.12em; font-weight:700;">Weight — last 30 days</span>
+          <span id="ahWeightRange" style="font-size:10.5px; font-family:var(--font-mono); color:var(--text-tertiary);"></span>
+        </div>
+        <svg id="ahWeightSvg" viewBox="0 0 300 70" style="width:100%; height:70px; overflow:visible;"></svg>
+      </div>
+
       <div id="ahEmpty" class="ah-empty" style="display:none;">Nothing logged yet — weight below, steps &amp; sleep will fill in once the Shortcut's running.</div>
       <div class="ah-manual">
         <div class="ah-manual-field"><label for="ahInWeight">Weight (kg) &middot; log every morning</label><input id="ahInWeight" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 85.4"></div>
@@ -686,6 +695,45 @@ main {
           '<div class="ah-bar" style="height:' + h + 'px"></div><div class="ah-bar-label">' + w.label + '</div></div>';
       });
       $('ahWeek').innerHTML = html;
+
+      // ---- weight trend, last 30 days ----
+      var chartWrap = $('ahWeightChartWrap');
+      var weightPoints = [];
+      for (var d30 = 29; d30 >= 0; d30--) {
+        var wd = new Date(); wd.setDate(wd.getDate() - d30);
+        var wk = dateKey(wd);
+        if (days[wk] && days[wk].weightKg != null) weightPoints.push({ k: wk, v: days[wk].weightKg });
+      }
+      if (weightPoints.length < 2) {
+        chartWrap.style.display = 'none';
+      } else {
+        chartWrap.style.display = '';
+        var vals = weightPoints.map(function (p) { return p.v; });
+        var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+        if (hi - lo < 0.5) { var mid = (hi + lo) / 2; lo = mid - 0.5; hi = mid + 0.5; }
+        var padY = (hi - lo) * 0.15;
+        lo -= padY; hi += padY;
+        var W = 300, H = 70, padX = 4;
+        var stepX = weightPoints.length > 1 ? (W - padX * 2) / (weightPoints.length - 1) : 0;
+        var pts = weightPoints.map(function (p, i) {
+          var x = padX + i * stepX;
+          var y = H - ((p.v - lo) / (hi - lo)) * H;
+          return { x: x, y: y, v: p.v, k: p.k };
+        });
+        var linePath = pts.map(function (p, i) { return (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join(' ');
+        var areaPath = linePath + ' L' + pts[pts.length - 1].x.toFixed(1) + ',' + H + ' L' + pts[0].x.toFixed(1) + ',' + H + ' Z';
+        var dots = pts.map(function (p, i) {
+          var isLast = i === pts.length - 1;
+          return '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="' + (isLast ? 3 : 1.6) + '" fill="' + (isLast ? '#6BE3A4' : 'rgba(255,255,255,0.5)') + '"><title>' + p.k + ': ' + p.v + 'kg</title></circle>';
+        }).join('');
+        $('ahWeightSvg').innerHTML =
+          '<path d="' + areaPath + '" fill="rgba(107,227,164,0.12)" stroke="none"></path>' +
+          '<path d="' + linePath + '" fill="none" stroke="#6BE3A4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>' +
+          dots;
+        var first = weightPoints[0].v, last = weightPoints[weightPoints.length - 1].v;
+        var delta = last - first;
+        $('ahWeightRange').textContent = (delta > 0 ? '+' : '') + (Math.round(delta * 10) / 10) + 'kg over ' + weightPoints.length + ' entries';
+      }
 
       // Pre-fill the manual inputs with whatever's already logged for today,
       // but don't stomp on something the person is mid-typing.
