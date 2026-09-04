@@ -266,7 +266,8 @@ body::after {
     { id: 'water-1300',    time: '13:00', label: 'Water',    message: 'Drink up.', enabled: true, lastFiredDate: null },
     { id: 'water-1530',    time: '15:30', label: 'Water',    message: 'Water break.', enabled: true, lastFiredDate: null },
     { id: 'water-1800',    time: '18:00', label: 'Water',    message: 'Drink some water.', enabled: true, lastFiredDate: null },
-    { id: 'water-2000',    time: '20:00', label: 'Water',    message: 'Last water for the day — get it in.', enabled: true, lastFiredDate: null }
+    { id: 'water-2000',    time: '20:00', label: 'Water',    message: 'Last water for the day — get it in.', enabled: true, lastFiredDate: null },
+    { id: 'daily-digest',  time: '20:30', label: 'Daily Recap', type: 'digest', enabled: true, lastFiredDate: null }
   ];
 
   var $ = function (id) { return document.getElementById(id); };
@@ -361,16 +362,21 @@ body::after {
 
       var msg = document.createElement('div');
       msg.className = 'rem-message';
-      msg.textContent = item.message || '';
-      msg.contentEditable = 'true';
-      msg.addEventListener('blur', function () {
-        saveItems(function (list) {
-          var t = list.find(function (x) { return x.id === item.id; });
-          if (t) t.message = msg.textContent.trim();
-          return list;
+      if (item.type === 'digest') {
+        msg.textContent = 'Auto-generated from today’s QLs, water, spend & weigh-in';
+        msg.style.fontStyle = 'italic';
+      } else {
+        msg.textContent = item.message || '';
+        msg.contentEditable = 'true';
+        msg.addEventListener('blur', function () {
+          saveItems(function (list) {
+            var t = list.find(function (x) { return x.id === item.id; });
+            if (t) t.message = msg.textContent.trim();
+            return list;
+          });
         });
-      });
-      msg.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); msg.blur(); } });
+        msg.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); msg.blur(); } });
+      }
 
       body.append(label, msg);
 
@@ -416,6 +422,17 @@ body::after {
     if (items && items.length) {
       cachedItems = items;
       render();
+      // One-time migration: anyone who seeded before the Daily Recap
+      // digest existed won't have it — add it in rather than leave
+      // them stuck on the old default set forever.
+      if (!items.some(function (i) { return i.type === 'digest'; })) {
+        saveItems(function (list) {
+          if (!list.some(function (i) { return i.type === 'digest'; })) {
+            list.push({ id: 'daily-digest', time: '20:30', label: 'Daily Recap', type: 'digest', enabled: true, lastFiredDate: null });
+          }
+          return list;
+        }).then(render);
+      }
     } else if (!seeded) {
       // First time this page has ever loaded for this account — seed
       // the sensible defaults so there's something useful right away.

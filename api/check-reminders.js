@@ -11,7 +11,9 @@
 // and a fire landing close together won't clobber each other).
 // For every enabled reminder whose scheduled time has passed and
 // hasn't already fired today, sends a push notification and
-// stamps lastFiredDate so it won't fire twice in one day.
+// stamps lastFiredDate so it won't fire twice in one day. An item
+// with type:'digest' gets a dynamically-built body instead of its
+// stored message — see buildDigestBody below.
 //
 // Needs the same VAPID_* env vars as /api/send-push. If a
 // CRON_SECRET env var is set, requires it as a Bearer token —
@@ -27,6 +29,36 @@ function nowNZ() {
   }).formatToParts(new Date());
   const get = (t) => parts.find((p) => p.type === t).value;
   return { date: `${get('year')}-${get('month')}-${get('day')}`, time: `${get('hour')}:${get('minute')}` };
+}
+
+// A 'digest' reminder ignores its stored .message and gets a fresh
+// one built from today's real numbers across the other app_state
+// rows — QLs logged, water reminders actually hit vs how many were
+// due by now, money spent today, and whether a weight got logged.
+async function buildDigestBody(supabase, today, digestTime, allItems) {
+  const [{ data: qlRow }, { data: financeRow }, { data: healthRow }] = await Promise.all([
+    supabase.from('app_state').select('data').eq('key', 'ql').maybeSingle(),
+    supabase.from('app_state').select('data').eq('key', 'finance').maybeSingle(),
+    supabase.from('app_state').select('data').eq('key', 'apple_health').maybeSingle(),
+  ]);
+
+  const qlCount = (qlRow && qlRow.data && qlRow.data['ql:log'] && qlRow.data['ql:log'][today]) || 0;
+
+  const waterItems = allItems.filter((i) => i.enabled !== false && /water/i.test(i.label || '') && i.time <= digestTime);
+  const waterHit = waterItems.filter((i) => i.lastFiredDate === today).length;
+
+  const txns = (financeRow && financeRow.data && financeRow.data.spend_txns) || [];
+  const spentToday = txns.filter((t) => t.date === today).reduce((s, t) => s + (t.amount || 0), 0);
+
+  const days = (healthRow && healthRow.data && healthRow.data.days) || {};
+  const weighedIn = days[today] && days[today].weightKg != null;
+
+  const bits = [`${qlCount} QL${qlCount === 1 ? '' : 's'}`];
+  if (waterItems.length) bits.push(`${waterHit}/${waterItems.length} waters`);
+  bits.push(`$${Math.round(spentToday)} spent today`);
+  let body = bits.join(' · ');
+  if (weighedIn) body += ' · weighed in';
+  return body;
 }
 
 export default async function handler(req, res) {
@@ -69,10 +101,13 @@ export default async function handler(req, res) {
       const deadEndpoints = new Set();
 
       for (const item of due) {
+        const body = item.type === 'digest'
+          ? await buildDigestBody(supabase, today, currentTime, items)
+          : (item.message || (item.label ? item.label + '.' : 'Reminder'));
         const payload = JSON.stringify({
           title: item.label || 'Reminder',
-          body: item.message || (item.label ? item.label + '.' : 'Reminder'),
-          url: '/reminders.html'
+          body,
+          url: item.type === 'digest' ? '/index.html' : '/reminders.html'
         });
         const results = await Promise.all(subs.map(async (s) => {
           try { await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, payload); return true; }
