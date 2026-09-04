@@ -309,6 +309,18 @@ body::after {
     return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('r' + Date.now() + Math.random().toString(16).slice(2));
   }
 
+  // A brand-new reminder whose time has already passed today should
+  // wait for tomorrow, not fire immediately on the next cron poll —
+  // stamping lastFiredDate as already-done-today does that. Without
+  // this, seeding several defaults (or backfilling a new auto type)
+  // in the afternoon fires every one of them at once as "overdue".
+  function initLastFired(time) {
+    var now = new Date();
+    var todayKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    var nowHHMM = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    return (time && time <= nowHHMM) ? todayKey : null;
+  }
+
   function fmtTime(t) {
     var parts = (t || '00:00').split(':');
     var h = parseInt(parts[0], 10), m = parts[1] || '00';
@@ -413,7 +425,7 @@ body::after {
     var time = timeInput.value || '08:00';
     var label = labelInput.value.trim();
     if (!label) { labelInput.focus(); return; }
-    var item = { id: makeId(), time: time, label: label, message: label + '.', enabled: true, lastFiredDate: null };
+    var item = { id: makeId(), time: time, label: label, message: label + '.', enabled: true, lastFiredDate: initLastFired(time) };
     saveItems(function (list) { list.push(item); return list; }).then(function () {
       labelInput.value = '';
       render();
@@ -438,7 +450,9 @@ body::after {
       if (missing.length) {
         saveItems(function (list) {
           missing.forEach(function (a) {
-            if (!list.some(function (i) { return i.type === a.type; })) list.push(a);
+            if (!list.some(function (i) { return i.type === a.type; })) {
+              list.push(Object.assign({}, a, { lastFiredDate: initLastFired(a.time) }));
+            }
           });
           return list;
         }).then(function () { cachedItems = null; fetchItems().then(function (fresh) { cachedItems = fresh; render(); }); });
@@ -447,8 +461,9 @@ body::after {
       // First time this page has ever loaded for this account — seed
       // the sensible defaults so there's something useful right away.
       seeded = true;
-      saveItems(function () { return DEFAULT_ITEMS.slice(); }).then(function () {
-        cachedItems = DEFAULT_ITEMS.slice();
+      var toSeed = DEFAULT_ITEMS.map(function (i) { return Object.assign({}, i, { lastFiredDate: initLastFired(i.time) }); });
+      saveItems(function () { return toSeed; }).then(function () {
+        cachedItems = toSeed;
         render();
       });
     }
