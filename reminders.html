@@ -267,7 +267,8 @@ body::after {
     { id: 'water-1530',    time: '15:30', label: 'Water',    message: 'Water break.', enabled: true, lastFiredDate: null },
     { id: 'water-1800',    time: '18:00', label: 'Water',    message: 'Drink some water.', enabled: true, lastFiredDate: null },
     { id: 'water-2000',    time: '20:00', label: 'Water',    message: 'Last water for the day — get it in.', enabled: true, lastFiredDate: null },
-    { id: 'daily-digest',  time: '20:30', label: 'Daily Recap', type: 'digest', enabled: true, lastFiredDate: null }
+    { id: 'daily-digest',  time: '20:30', label: 'Daily Recap', type: 'digest', enabled: true, lastFiredDate: null },
+    { id: 'stale-leads',   time: '09:00', label: 'Stale Leads', type: 'stale-leads', enabled: true, lastFiredDate: null }
   ];
 
   var $ = function (id) { return document.getElementById(id); };
@@ -365,6 +366,9 @@ body::after {
       if (item.type === 'digest') {
         msg.textContent = 'Auto-generated from today’s QLs, water, spend & weigh-in';
         msg.style.fontStyle = 'italic';
+      } else if (item.type === 'stale-leads') {
+        msg.textContent = 'Auto-generated from your CRM follow-up backlog — silent when nothing’s overdue';
+        msg.style.fontStyle = 'italic';
       } else {
         msg.textContent = item.message || '';
         msg.contentEditable = 'true';
@@ -418,20 +422,26 @@ body::after {
   addBtn.addEventListener('click', add);
   labelInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') add(); });
 
+  // Auto-generated reminder types that ship after someone's already
+  // seeded their row — backfilled below so nobody's stuck on whatever
+  // the default set looked like the day they first opened this page.
+  var AUTO_TYPES = [
+    { id: 'daily-digest', time: '20:30', label: 'Daily Recap', type: 'digest', enabled: true, lastFiredDate: null },
+    { id: 'stale-leads',  time: '09:00', label: 'Stale Leads', type: 'stale-leads', enabled: true, lastFiredDate: null }
+  ];
+
   fetchItems().then(function (items) {
     if (items && items.length) {
       cachedItems = items;
       render();
-      // One-time migration: anyone who seeded before the Daily Recap
-      // digest existed won't have it — add it in rather than leave
-      // them stuck on the old default set forever.
-      if (!items.some(function (i) { return i.type === 'digest'; })) {
+      var missing = AUTO_TYPES.filter(function (a) { return !items.some(function (i) { return i.type === a.type; }); });
+      if (missing.length) {
         saveItems(function (list) {
-          if (!list.some(function (i) { return i.type === 'digest'; })) {
-            list.push({ id: 'daily-digest', time: '20:30', label: 'Daily Recap', type: 'digest', enabled: true, lastFiredDate: null });
-          }
+          missing.forEach(function (a) {
+            if (!list.some(function (i) { return i.type === a.type; })) list.push(a);
+          });
           return list;
-        }).then(render);
+        }).then(function () { cachedItems = null; fetchItems().then(function (fresh) { cachedItems = fresh; render(); }); });
       }
     } else if (!seeded) {
       // First time this page has ever loaded for this account — seed

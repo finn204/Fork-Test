@@ -13,7 +13,8 @@
 // hasn't already fired today, sends a push notification and
 // stamps lastFiredDate so it won't fire twice in one day. An item
 // with type:'digest' gets a dynamically-built body instead of its
-// stored message — see buildDigestBody below.
+// stored message (see buildDigestBody); type:'stale-leads' pulls the
+// real CRM backlog instead and skips silently when nothing's overdue.
 //
 // Needs the same VAPID_* env vars as /api/send-push. If a
 // CRON_SECRET env var is set, requires it as a Bearer token —
@@ -61,6 +62,33 @@ async function buildDigestBody(supabase, today, digestTime, allItems) {
   return body;
 }
 
+// A 'stale-leads' reminder pulls the real CRM backlog (business.html's
+// stale_tasks) instead of a canned message — names the single most
+// overdue lead so it's never just a vague "you have leads" nudge.
+function overdueLabel(dueDate, today) {
+  const days = Math.floor((new Date(today).getTime() - new Date(dueDate).getTime()) / 86400000);
+  if (days < 0) return null;
+  if (days < 30) return `${days}d overdue`;
+  return `${Math.floor(days / 30)}mo overdue`;
+}
+async function buildStaleLeadsBody(supabase, today) {
+  const { data: bizRow } = await supabase.from('app_state').select('data').eq('key', 'business').maybeSingle();
+  const tasks = (bizRow && bizRow.data && bizRow.data.stale_tasks) || [];
+  if (!tasks.length) return null; // nothing overdue — skip firing entirely
+
+  const withLabels = tasks
+    .map((t) => ({ ...t, overdue: overdueLabel(t.dueDate, today) }))
+    .filter((t) => t.overdue)
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+  if (!withLabels.length) return null;
+
+  const worst = withLabels[0];
+  const rest = withLabels.length - 1;
+  let body = `${withLabels.length} stale follow-up${withLabels.length === 1 ? '' : 's'} — worst: ${worst.name} (${worst.overdue})`;
+  if (rest > 0) body += `, +${rest} more`;
+  return body;
+}
+
 export default async function handler(req, res) {
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
@@ -101,13 +129,19 @@ export default async function handler(req, res) {
       const deadEndpoints = new Set();
 
       for (const item of due) {
-        const body = item.type === 'digest'
-          ? await buildDigestBody(supabase, today, currentTime, items)
-          : (item.message || (item.label ? item.label + '.' : 'Reminder'));
+        let body;
+        if (item.type === 'digest') body = await buildDigestBody(supabase, today, currentTime, items);
+        else if (item.type === 'stale-leads') body = await buildStaleLeadsBody(supabase, today);
+        else body = item.message || (item.label ? item.label + '.' : 'Reminder');
+
+        // stale-leads returns null when there's nothing overdue — still
+        // counts as "checked" for today (stamped below) but sends nothing.
+        if (body === null) continue;
+
         const payload = JSON.stringify({
           title: item.label || 'Reminder',
           body,
-          url: item.type === 'digest' ? '/index.html' : '/reminders.html'
+          url: item.type === 'stale-leads' ? '/business.html' : (item.type === 'digest' ? '/index.html' : '/reminders.html')
         });
         const results = await Promise.all(subs.map(async (s) => {
           try { await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, payload); return true; }
