@@ -1,0 +1,24 @@
+name: Reminders cron
+
+# Vercel's Hobby-plan cron only fires once a day, but reminders need
+# to land at specific times throughout the day. GitHub Actions'
+# schedule trigger has no such limit, so this polls the check
+# endpoint every 5 minutes instead — it's a no-op most of the time
+# (the endpoint itself decides whether anything's actually due).
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit /api/check-reminders
+        run: |
+          if [ -n "${{ secrets.CRON_SECRET }}" ]; then
+            curl -sf -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+              https://fork-test-rose.vercel.app/api/check-reminders
+          else
+            curl -sf https://fork-test-rose.vercel.app/api/check-reminders
+          fi
