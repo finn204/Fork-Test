@@ -23,20 +23,34 @@
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
 
+const DOW = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
 function nowNZ() {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Pacific/Auckland', year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hour12: false,
+    hour: '2-digit', minute: '2-digit', hour12: false, weekday: 'short',
   }).formatToParts(new Date());
   const get = (t) => parts.find((p) => p.type === t).value;
-  return { date: `${get('year')}-${get('month')}-${get('day')}`, time: `${get('hour')}:${get('minute')}` };
+  return {
+    date: `${get('year')}-${get('month')}-${get('day')}`,
+    time: `${get('hour')}:${get('minute')}`,
+    dow: DOW[get('weekday')],
+  };
+}
+
+// A reminder with no `days` runs every day. With one, it only runs on
+// those weekdays (0 = Sunday). Work-shaped nudges — stale leads, QLs —
+// are set to Mon-Fri so the weekend stays quiet.
+function runsToday(item, dow) {
+  if (!Array.isArray(item.days) || !item.days.length) return true;
+  return item.days.indexOf(dow) !== -1;
 }
 
 // A 'digest' reminder ignores its stored .message and gets a fresh
 // one built from today's real numbers across the other app_state
 // rows — QLs logged, water reminders actually hit vs how many were
 // due by now, money spent today, and whether a weight got logged.
-async function buildDigestBody(supabase, today, digestTime, allItems) {
+async function buildDigestBody(supabase, today, digestTime, allItems, dow) {
   const [{ data: qlRow }, { data: financeRow }, { data: healthRow }] = await Promise.all([
     supabase.from('app_state').select('data').eq('key', 'ql').maybeSingle(),
     supabase.from('app_state').select('data').eq('key', 'finance').maybeSingle(),
@@ -45,7 +59,7 @@ async function buildDigestBody(supabase, today, digestTime, allItems) {
 
   const qlCount = (qlRow && qlRow.data && qlRow.data['ql:log'] && qlRow.data['ql:log'][today]) || 0;
 
-  const waterItems = allItems.filter((i) => i.enabled !== false && /water/i.test(i.label || '') && i.time <= digestTime);
+  const waterItems = allItems.filter((i) => i.enabled !== false && runsToday(i, dow) && /water/i.test(i.label || '') && i.time <= digestTime);
   const waterHit = waterItems.filter((i) => i.lastFiredDate === today).length;
 
   const txns = (financeRow && financeRow.data && financeRow.data.spend_txns) || [];
@@ -54,7 +68,10 @@ async function buildDigestBody(supabase, today, digestTime, allItems) {
   const days = (healthRow && healthRow.data && healthRow.data.days) || {};
   const weighedIn = days[today] && days[today].weightKg != null;
 
-  const bits = [`${qlCount} QL${qlCount === 1 ? '' : 's'}`];
+  // No QL line at the weekend — not a work day, so it is not a miss.
+  const isWeekend = dow === 0 || dow === 6;
+  const bits = [];
+  if (!isWeekend) bits.push(`${qlCount} QL${qlCount === 1 ? '' : 's'}`);
   if (waterItems.length) bits.push(`${waterHit}/${waterItems.length} waters`);
   bits.push(`$${Math.round(spentToday)} spent today`);
   let body = bits.join(' · ');
@@ -106,7 +123,7 @@ export default async function handler(req, res) {
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
-  const { date: today, time: currentTime } = nowNZ();
+  const { date: today, time: currentTime, dow } = nowNZ();
 
   try {
     const { data: remRow } = await supabase.from('app_state').select('data').eq('key', 'reminders').maybeSingle();
@@ -114,6 +131,7 @@ export default async function handler(req, res) {
 
     const due = items.filter((item) =>
       item.enabled !== false &&
+      runsToday(item, dow) &&
       item.time && item.time <= currentTime &&
       item.lastFiredDate !== today
     );
@@ -130,7 +148,7 @@ export default async function handler(req, res) {
 
       for (const item of due) {
         let body;
-        if (item.type === 'digest') body = await buildDigestBody(supabase, today, currentTime, items);
+        if (item.type === 'digest') body = await buildDigestBody(supabase, today, currentTime, items, dow);
         else if (item.type === 'stale-leads') body = await buildStaleLeadsBody(supabase, today);
         else body = item.message || (item.label ? item.label + '.' : 'Reminder');
 

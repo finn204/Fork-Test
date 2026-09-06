@@ -347,8 +347,8 @@ body::after {
   let logs = loadJSON(LOGS_KEY, []);
 
   /* ============ Personal data ============ */
-  let bodyKg = null, recovery = null;
-  let wakeHour = 7, bedHour = 23;   // defaults; overridden by WHOOP
+  let bodyKg = null;
+  let wakeHour = 7, bedHour = 23;   // Finn's usual shape: 7am alarm, bed ~11.
   function readProfile() {
     const w = loadJSON('po_water_v1', null);
     if (w && w.profile && w.profile.weightKg) {
@@ -356,7 +356,7 @@ body::after {
       if (kg > 0) bodyKg = kg;
     }
   }
-  function dailyLimit() { if (recovery!=null && recovery<34) return 200; if (recovery!=null && recovery<67) return 300; return FDA_MAX; }
+  function dailyLimit() { return FDA_MAX; }
   function moderateTarget() { return bodyKg ? Math.round(3*bodyKg) : 200; }
 
   /* ============ Time helpers ============ */
@@ -400,31 +400,6 @@ body::after {
   }
   function stateWord(v){ if(v>=80)return'Peak'; if(v>=62)return'High'; if(v>=44)return'Steady'; if(v>=28)return'Dip'; return'Low'; }
   function energyColor(v){ if(v>=62)return'#6BE3A4'; if(v>=40)return'#F2C063'; return '#FF8A8A'; }
-
-  /* ============ WHOOP (optional) ============ */
-  async function loadWhoop(){
-    let t = loadJSON('whoop_tokens_v1', null);
-    if (!t || !t.access) return;
-    async function whFetch(path, tok){
-      const [p,qs]=path.split('?'); const params=new URLSearchParams(qs||''); params.set('path',p);
-      const r=await fetch('/api/whoop-data?'+params.toString(),{headers:{'Authorization':'Bearer '+tok.access,'Accept':'application/json'}});
-      if(!r.ok) throw new Error('whoop '+r.status); return r.json();
-    }
-    try{
-      const [rec, sleep] = await Promise.all([
-        whFetch('/recovery?limit=1',t).catch(()=>null),
-        whFetch('/activity/sleep?limit=1',t).catch(()=>null),
-      ]);
-      const r0=rec&&rec.records&&rec.records[0];
-      if(r0&&r0.score&&r0.score.recovery_score!=null) recovery=Math.round(r0.score.recovery_score);
-      const s0=sleep&&sleep.records&&sleep.records[0];
-      if(s0){
-        if(s0.start){ const d=new Date(s0.start); bedHour=clamp(d.getHours()+d.getMinutes()/60,20,23.9); }
-        if(s0.end){ const d=new Date(s0.end); wakeHour=clamp(d.getHours()+d.getMinutes()/60,4,11); }
-      }
-      renderAll();
-    }catch(e){}
-  }
 
   /* ============ Analysis: peak window, crash, coffee cutoff ============ */
   function sample(withCaf){ const pts=[]; for(let i=0;i<=144;i++){ const t=i/6; pts.push([t, energyAt(t, withCaf)]); } return pts; }
@@ -556,7 +531,6 @@ body::after {
     if(atBed>=50) tips.push(['⚠️','~'+atBed+' mg will still be active at bedtime — that\'s enough to delay deep sleep. Ease off.']);
     if(a.crashSignificant) tips.push(['🚶','Beat the '+fmtClock(a.crashT)+' dip with 10 min of daylight + water instead of another coffee — you\'ll avoid stacking a late crash.']);
     tips.push(['💧','Drink a glass of water per caffeinated drink — dehydration mimics and worsens the crash.']);
-    if(recovery!=null && recovery<34) tips.push(['🔋','WHOOP recovery is '+recovery+'% — low. Caffeine masks fatigue but won\'t repay sleep debt; keep today under '+dailyLimit()+' mg.']);
     const ul=$('tips'); ul.innerHTML='';
     tips.forEach(([ic,txt])=>{ const li=document.createElement('li'); li.className='tip'; li.innerHTML='<span class="ic">'+ic+'</span><span>'+txt+'</span>'; ul.appendChild(li); });
   }
@@ -578,7 +552,6 @@ body::after {
     const parts=[];
     if(bodyKg) parts.push('Target ~'+target+' mg (3 mg/kg for '+Math.round(bodyKg)+' kg). Ceiling '+limit+' mg.');
     else parts.push('Using the 400 mg/day ceiling — add your weight in Settings for a personalized target.');
-    if(recovery!=null) parts.push('WHOOP recovery '+recovery+'%'+(recovery<34?' — limit pulled back to '+limit+' mg.':'.'));
     $('dailyNote').innerHTML=parts.join('<br>');
   }
 
@@ -638,7 +611,6 @@ body::after {
 
   readProfile();
   renderAll();
-  loadWhoop();
   setInterval(()=>{ if(scrubT==null) renderAll(); }, 60000);
 
   /* ============ Cloud sync ============ */

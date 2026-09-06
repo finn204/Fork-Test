@@ -1,6 +1,7 @@
 // ============================================================
 // GET/POST /api/daily-ql-check — meant to be hit by Vercel Cron,
-// once a day, in the evening NZ time.
+// once a day, in the evening NZ time. Weekdays only — QLs are a
+// work-day job, so Sat/Sun it returns immediately without nudging.
 //
 // Checks today's Qualified Leads count (the 'ql' app_state row
 // business.html's tracker writes to) and — if it's under the
@@ -24,6 +25,12 @@ function todayNZ() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' });
 }
 
+// Qualified leads are a weekday job. Sat/Sun the nudge stays quiet.
+function isWeekendNZ() {
+  const day = new Date().toLocaleDateString('en-US', { timeZone: 'Pacific/Auckland', weekday: 'short' });
+  return day === 'Sat' || day === 'Sun';
+}
+
 export default async function handler(req, res) {
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
@@ -39,6 +46,8 @@ export default async function handler(req, res) {
   if (!supabaseUrl || !supabaseKey || !vapidPublic || !vapidPrivate) {
     return res.status(500).json({ error: 'server not configured' });
   }
+
+  if (isWeekendNZ()) return res.status(200).json({ ok: true, skipped: 'weekend' });
 
   const supabase = createClient(supabaseUrl, supabaseKey);
   const today = todayNZ();

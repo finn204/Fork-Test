@@ -129,7 +129,7 @@ body::after {
 .rem-time {
   font-family: var(--font-mono);
   font-size: 15px; font-weight: 600; color: var(--text-primary);
-  flex-shrink: 0; width: 58px;
+  flex-shrink: 0; width: 74px;
   outline: none; border: 0; background: transparent; color: inherit;
   font-family: inherit; padding: 0;
 }
@@ -148,6 +148,25 @@ body::after {
 }
 .rem-message[contenteditable="true"] {
   outline: 1px solid rgba(255,255,255,0.14); background: rgba(0,0,0,0.22);
+}
+
+/* Mon-Sun picker. All seven lit = every day. */
+.rem-days { display: flex; gap: 3px; margin-top: 6px; }
+.rem-day {
+  width: 20px; height: 20px; padding: 0;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-family: inherit; font-size: 9.5px; font-weight: 700;
+  line-height: 1; cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.rem-day:hover { border-color: rgba(255,255,255,0.24); }
+.rem-day.on {
+  background: rgba(107,227,164,0.16);
+  border-color: rgba(107,227,164,0.45);
+  color: var(--success);
 }
 
 /* iOS-style pill toggle */
@@ -221,7 +240,7 @@ body::after {
 @media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
   .gm-card { padding: 16px; }
-  .rem-time { width: 50px; font-size: 14px; }
+  .rem-time { width: 66px; font-size: 14px; }
 }
 </style>
 </head>
@@ -268,7 +287,7 @@ body::after {
     { id: 'water-1800',    time: '18:00', label: 'Water',    message: 'Drink some water.', enabled: true, lastFiredDate: null },
     { id: 'water-2000',    time: '20:00', label: 'Water',    message: 'Last water for the day — get it in.', enabled: true, lastFiredDate: null },
     { id: 'daily-digest',  time: '20:30', label: 'Daily Recap', type: 'digest', enabled: true, lastFiredDate: null },
-    { id: 'stale-leads',   time: '09:00', label: 'Stale Leads', type: 'stale-leads', enabled: true, lastFiredDate: null }
+    { id: 'stale-leads',   time: '09:00', label: 'Stale Leads', type: 'stale-leads', days: [1,2,3,4,5], enabled: true, lastFiredDate: null }
   ];
 
   var $ = function (id) { return document.getElementById(id); };
@@ -394,7 +413,35 @@ body::after {
         msg.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); msg.blur(); } });
       }
 
-      body.append(label, msg);
+      /* Mon-first so it reads like a work week; value is 0=Sun.
+         Empty or all-seven both mean "every day" to the cron. */
+      var daysWrap = document.createElement('div');
+      daysWrap.className = 'rem-days';
+      [['M',1],['T',2],['W',3],['T',4],['F',5],['S',6],['S',0]].forEach(function (d) {
+        var on = !Array.isArray(item.days) || !item.days.length || item.days.indexOf(d[1]) !== -1;
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'rem-day' + (on ? ' on' : '');
+        b.textContent = d[0];
+        b.title = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d[1]];
+        b.addEventListener('click', function () {
+          saveItems(function (list) {
+            var t = list.find(function (x) { return x.id === item.id; });
+            if (!t) return list;
+            var cur = (Array.isArray(t.days) && t.days.length) ? t.days.slice() : [0,1,2,3,4,5,6];
+            var at = cur.indexOf(d[1]);
+            if (at === -1) cur.push(d[1]); else cur.splice(at, 1);
+            /* Never let it end up on nothing — that would be a reminder
+               that silently never fires. Turning the last one off means
+               "every day" again. */
+            t.days = (cur.length === 0 || cur.length === 7) ? null : cur.sort();
+            return list;
+          }).then(render);
+        });
+        daysWrap.appendChild(b);
+      });
+
+      body.append(label, msg, daysWrap);
 
       var toggle = document.createElement('button');
       toggle.type = 'button';
@@ -439,7 +486,7 @@ body::after {
   // the default set looked like the day they first opened this page.
   var AUTO_TYPES = [
     { id: 'daily-digest', time: '20:30', label: 'Daily Recap', type: 'digest', enabled: true, lastFiredDate: null },
-    { id: 'stale-leads',  time: '09:00', label: 'Stale Leads', type: 'stale-leads', enabled: true, lastFiredDate: null }
+    { id: 'stale-leads',  time: '09:00', label: 'Stale Leads', type: 'stale-leads', days: [1,2,3,4,5], enabled: true, lastFiredDate: null }
   ];
 
   fetchItems().then(function (items) {
