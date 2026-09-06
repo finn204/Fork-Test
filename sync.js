@@ -8,7 +8,17 @@
 //
 // Requires:
 //   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-//   <script src="sync.js" defer></script>
+//   <script src="auth.js"></script>
+//   <script src="sync.js"></script>
+//
+// Two rules this file exists to enforce:
+//   1. Nothing touches the database until auth.js has restored the
+//      session. RLS only answers to `authenticated`, so a read fired
+//      during that gap comes back empty — which is NOT the same as
+//      "no data yet", and must never be treated as such.
+//   2. A push only ever rewrites the keys this instance owns. Several
+//      pages share one row with different key lists; a full-row write
+//      from the narrow one would erase the wide one's keys.
 // =============================================================
 (function () {
   'use strict';
@@ -31,7 +41,10 @@
     let supa = null;
     let pushTimer = null;
     let suppressSync = false;
-    let lastSyncedJson = null;
+    let lastMineJson = null;   // our matched subset, as last pushed or applied
+    let rowOthers = {};        // keys in the row owned by OTHER pages — preserved verbatim
+    let token = null;          // access token, for the unload beacon
+    let live = false;          // true only once a read has actually succeeded
 
     function matches(k) {
       if (!k) return false;
@@ -58,6 +71,19 @@
       }
       return out;
     }
+    // The row we would write: everyone else's keys, plus ours as they
+    // stand now. Keys we own and have since deleted simply drop out.
+    function buildRow(mine) {
+      const out = {};
+      for (const k of Object.keys(rowOthers)) { if (!matches(k)) out[k] = rowOthers[k]; }
+      for (const k of Object.keys(mine)) out[k] = mine[k];
+      return out;
+    }
+    function rememberOthers(remote) {
+      rowOthers = {};
+      if (!remote || typeof remote !== 'object') return;
+      for (const k of Object.keys(remote)) { if (!matches(k)) rowOthers[k] = remote[k]; }
+    }
 
     const origSet = localStorage.setItem.bind(localStorage);
     const origRemove = localStorage.removeItem.bind(localStorage);
@@ -72,6 +98,7 @@
 
     function applyRemote(remote) {
       if (!remote || typeof remote !== 'object') return false;
+      rememberOthers(remote);
       suppressSync = true;
       let changed = false;
       try {
@@ -89,6 +116,7 @@
           }
         }
       } finally { suppressSync = false; }
+      lastMineJson = JSON.stringify(collect());
       if (changed && typeof onApplied === 'function') {
         try { onApplied(); } catch (e) {}
       }
@@ -96,16 +124,16 @@
     }
 
     async function pushNow() {
-      if (!supa) return;
-      const state = collect();
-      const json = JSON.stringify(state);
-      if (json === lastSyncedJson) return;
+      if (!supa || !live) return;
+      const mine = collect();
+      const json = JSON.stringify(mine);
+      if (json === lastMineJson) return;
       try {
         const { error } = await supa.from('app_state').upsert(
-          { key: appKey, data: state, updated_at: new Date().toISOString() },
+          { key: appKey, data: buildRow(mine), updated_at: new Date().toISOString() },
           { onConflict: 'key' }
         );
-        if (!error) lastSyncedJson = json;
+        if (!error) lastMineJson = json;
       } catch (e) {}
     }
     function schedulePush() {
@@ -113,41 +141,70 @@
       pushTimer = setTimeout(pushNow, 250);
     }
     function flushOnUnload() {
-      const state = collect();
-      const json = JSON.stringify(state);
-      if (json === lastSyncedJson) return;
+      if (!supa || !live || !token) return;
+      const mine = collect();
+      const json = JSON.stringify(mine);
+      if (json === lastMineJson) return;
       try {
         fetch(SUPABASE_URL + '/rest/v1/app_state?on_conflict=key', {
           method: 'POST',
           headers: {
             'apikey': SUPABASE_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_KEY,
+            // The row is RLS-protected: this must be the signed-in
+            // user's token, not the publishable key, or it 401s.
+            'Authorization': 'Bearer ' + token,
             'Content-Type': 'application/json',
             'Prefer': 'resolution=merge-duplicates',
           },
-          body: JSON.stringify({ key: appKey, data: state, updated_at: new Date().toISOString() }),
+          body: JSON.stringify({ key: appKey, data: buildRow(mine), updated_at: new Date().toISOString() }),
           keepalive: true,
         }).catch(() => {});
-        lastSyncedJson = json;
+        lastMineJson = json;
       } catch (e) {}
     }
 
     (async function init() {
-      /* Reuse the signed-in client from auth.js so there is exactly one
-         auth instance per page; several would fight over the session. */
+      /* auth.js publishes a promise that settles once it knows whether
+         there is a session. Reading before that resolves races the token
+         restore and comes back empty. */
+      if (window.dashAuthReady && typeof window.dashAuthReady.then === 'function') {
+        let signedIn = false;
+        try { signedIn = await window.dashAuthReady; } catch (e) {}
+        if (!signedIn) return;   // gate is up: read nothing, write nothing
+      }
+
       supa = (window.dashAuth && window.dashAuth.client)
         ? window.dashAuth.client
         : window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      try {
+        const s = await supa.auth.getSession();
+        token = (s && s.data && s.data.session && s.data.session.access_token) || null;
+      } catch (e) {}
+      try {
+        supa.auth.onAuthStateChange(function (_e, session) {
+          token = (session && session.access_token) || null;
+        });
+      } catch (e) {}
+
+      let readOk = false, remote = null;
       try {
         const { data, error } = await supa
           .from('app_state').select('data').eq('key', appKey).maybeSingle();
-        if (!error && data && data.data && Object.keys(data.data).length > 0) {
-          lastSyncedJson = JSON.stringify(data.data);
-          applyRemote(data.data);
-        } else if (Object.keys(collect()).length > 0) {
-          schedulePush();
-        }
+        if (!error) { readOk = true; remote = (data && data.data) || null; }
       } catch (e) {}
+
+      /* A read that failed tells us nothing about the row. Pushing here
+         is what overwrote good phone data with stale desktop data. */
+      if (!readOk) return;
+      live = true;
+
+      if (remote && Object.keys(remote).length > 0) {
+        applyRemote(remote);
+      } else if (Object.keys(collect()).length > 0) {
+        schedulePush();   // genuinely no row yet — seed it from this device
+      }
+
       supa.channel('app_state_' + appKey)
         .on('postgres_changes', {
           event: '*',
@@ -156,9 +213,6 @@
           filter: 'key=eq.' + appKey,
         }, (payload) => {
           if (!payload.new || !payload.new.data) return;
-          const incoming = JSON.stringify(payload.new.data);
-          if (incoming === lastSyncedJson) return;
-          lastSyncedJson = incoming;
           applyRemote(payload.new.data);
         })
         .subscribe();
