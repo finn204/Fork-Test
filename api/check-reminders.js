@@ -14,7 +14,8 @@
 // stamps lastFiredDate so it won't fire twice in one day. An item
 // with type:'digest' gets a dynamically-built body instead of its
 // stored message (see buildDigestBody); type:'stale-leads' pulls the
-// real CRM backlog instead and skips silently when nothing's overdue.
+// real CRM backlog instead and skips silently when nothing's overdue;
+// type:'callout' names the single worst thing today's data says.
 //
 // Needs the same VAPID_* env vars as /api/send-push. If a
 // CRON_SECRET env var is set, requires it as a Bearer token —
@@ -106,6 +107,120 @@ async function buildStaleLeadsBody(supabase, today) {
   return body;
 }
 
+// ============================================================
+// A 'callout' reminder. Late evening, one line, no cushioning.
+// It only ever states something the data actually says, and it
+// says the single worst thing rather than a list — a list reads
+// as wallpaper, one line lands.
+//
+// GYM_DAYS mirrors habits.js (`gym` is dow [1,2,4,5]). If the gym
+// schedule changes there, change it here too; the server has no
+// other way to know which days were meant to be training days.
+// ============================================================
+const GYM_DAYS = [1, 2, 4, 5];
+const TARGET_DATE = '2026-12-25';
+
+function daysUntil(today, target) {
+  return Math.round((new Date(target).getTime() - new Date(today).getTime()) / 86400000);
+}
+
+// Stable within a day, different between days, so a line he saw
+// yesterday isn't the line he sees tonight.
+function pick(list, today) {
+  let h = 0;
+  for (let i = 0; i < today.length; i++) h = (h * 31 + today.charCodeAt(i)) >>> 0;
+  return list[h % list.length];
+}
+
+function streakDays(streaks, which, today) {
+  const start = (streaks.start && streaks.start[which]) || '2026-08-29';
+  const slips = ((streaks.slips && streaks.slips[which]) || []).slice().sort();
+  let from = start;
+  if (slips.length) {
+    const last = slips[slips.length - 1];
+    if (last >= from) {
+      const nx = new Date(last);
+      nx.setDate(nx.getDate() + 1);
+      from = nx.toISOString().slice(0, 10);
+    }
+  }
+  const n = Math.round((new Date(today).getTime() - new Date(from).getTime()) / 86400000) + 1;
+  return n > 0 ? n : 0;
+}
+
+async function buildCalloutBody(supabase, today, dow) {
+  const [{ data: streakRow }, { data: goalsRow }, { data: healthRow }] = await Promise.all([
+    supabase.from('app_state').select('data').eq('key', 'streaks').maybeSingle(),
+    supabase.from('app_state').select('data').eq('key', 'goals').maybeSingle(),
+    supabase.from('app_state').select('data').eq('key', 'apple_health').maybeSingle(),
+  ]);
+
+  /* Only accuse him of something the data can actually show. A missing
+     row means "we have not heard from that device", NOT "he skipped it"
+     — inventing a miss out of an empty read is exactly how a call-out
+     stops being believable. Each branch below is gated on its own row. */
+  const hasStreaks = !!(streakRow && streakRow.data && streakRow.data['streaks:v1']);
+  const hasGoals   = !!(goalsRow && goalsRow.data && goalsRow.data['goals:daily']);
+  const hasHealth  = !!(healthRow && healthRow.data && healthRow.data.days);
+  if (!hasStreaks && !hasGoals && !hasHealth) return null;  // nothing known: stay quiet
+
+  const streaks = (hasStreaks && streakRow.data['streaks:v1']) || {};
+  const slips = streaks.slips || {};
+  const ticks = (hasGoals && goalsRow.data['goals:daily'][today]) || {};
+  const healthDays = (hasHealth && healthRow.data.days) || {};
+
+  const left = daysUntil(today, TARGET_DATE);
+  const countdown = left > 0 ? `${left} days to Christmas.` : '';
+
+  // 1. Slipped today. Nothing else matters tonight.
+  const drank = (slips.alcohol || []).indexOf(today) !== -1;
+  const vaped = (slips.nicotine || []).indexOf(today) !== -1;
+  if (drank || vaped) {
+    const what = drank && vaped ? 'a drink and nicotine' : (drank ? 'a drink' : 'nicotine');
+    return pick([
+      `You chose ${what} over Christmas. Streak: 0. ${countdown}`,
+      `${what[0].toUpperCase() + what.slice(1)} today. Back to zero, by your own hand. ${countdown}`,
+      `Streak reset. You went 7 months sugar-free once, so do not pretend this one is hard. ${countdown}`,
+    ], today);
+  }
+
+  // 2. A training day with no gym ticked.
+  if (hasGoals && GYM_DAYS.indexOf(dow) !== -1 && !ticks.gym) {
+    return pick([
+      'No gym today, and it was a gym day. That is one of four gone this week.',
+      'Training day, no training. December is going to look exactly like August at this rate.',
+      'You skipped the gym. Nobody is going to care about your excuse in January.',
+    ], today);
+  }
+
+  // 3. No clean day logged, and the day is nearly over.
+  if (hasStreaks && !(streaks.checks || {})[today]) {
+    return pick([
+      'You have not logged a clean day. Either you slipped or you could not be bothered. Neither is good.',
+      'Clean day still unticked. Thirty seconds. Do it.',
+      'No clean day logged. The streak only counts what you actually confirm.',
+    ], today);
+  }
+
+  // 4. No weigh-in.
+  if (hasHealth && !(healthDays[today] && healthDays[today].weightKg != null)) {
+    return pick([
+      'No weigh-in today. You cannot fix what you refuse to look at.',
+      'Skipped the scales. That is avoidance, not a rest day.',
+    ], today);
+  }
+
+  // 5. Nothing to call out. Do not let it feel like a finish line.
+  if (!hasStreaks) return null;   // no streak numbers to stand on
+  const alc = streakDays(streaks, 'alcohol', today);
+  const nic = streakDays(streaks, 'nicotine', today);
+  return pick([
+    `${alc} days dry, ${nic} without nicotine. Do not get comfortable. ${countdown}`,
+    `Clean day ${alc}. Good. Now do it again tomorrow. ${countdown}`,
+    `${alc} days. That is the easy part. ${countdown}`,
+  ], today).trim();
+}
+
 export default async function handler(req, res) {
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
@@ -150,6 +265,7 @@ export default async function handler(req, res) {
         let body;
         if (item.type === 'digest') body = await buildDigestBody(supabase, today, currentTime, items, dow);
         else if (item.type === 'stale-leads') body = await buildStaleLeadsBody(supabase, today);
+        else if (item.type === 'callout') body = await buildCalloutBody(supabase, today, dow);
         else body = item.message || (item.label ? item.label + '.' : 'Reminder');
 
         // stale-leads returns null when there's nothing overdue — still
@@ -159,7 +275,9 @@ export default async function handler(req, res) {
         const payload = JSON.stringify({
           title: item.label || 'Reminder',
           body,
-          url: item.type === 'stale-leads' ? '/business.html' : (item.type === 'digest' ? '/index.html' : '/reminders.html')
+          url: item.type === 'stale-leads' ? '/business.html'
+            : (item.type === 'digest' || item.type === 'callout') ? '/index.html'
+            : '/reminders.html'
         });
         const results = await Promise.all(subs.map(async (s) => {
           try { await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, payload); return true; }
