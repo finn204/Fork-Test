@@ -130,5 +130,26 @@
     else document.addEventListener('DOMContentLoaded', show);
     return false;
   });
+
+  /* Headers for a direct REST call to Supabase.
+     Pages that talk to PostgREST themselves (health, reminders,
+     business) were sending the publishable key as their bearer token.
+     That works only while `anon` still has policies on the table — the
+     moment app_state is locked to `authenticated`, every one of those
+     calls starts failing. Send the signed-in session's token instead,
+     falling back to the publishable key so nothing breaks before the
+     lockdown lands. */
+  window.dashRestHeaders = function (extra) {
+    return Promise.resolve(ready)
+      .then(function () { return client.auth.getSession(); })
+      .catch(function () { return null; })
+      .then(function (s) {
+        var token = (s && s.data && s.data.session && s.data.session.access_token) || KEY_;
+        var out = { apikey: KEY_, Authorization: 'Bearer ' + token };
+        if (extra) Object.keys(extra).forEach(function (k) { out[k] = extra[k]; });
+        return out;
+      });
+  };
+
   window.dashAuthReady = ready;
 })();
