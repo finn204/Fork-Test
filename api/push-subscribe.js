@@ -8,6 +8,13 @@
 // stores the push subscription in the app_state table under
 // key 'push_subscriptions' — same table every other page uses,
 // so no new Supabase setup is needed.
+//
+// This runs on the server and uses the SERVICE ROLE key when one is
+// set. That key bypasses RLS, which is what keeps this working once
+// app_state is locked to `authenticated` only. It falls back to the
+// anon key so nothing breaks before the env var exists. The service
+// role key must NEVER reach the browser: /api/config serves the anon
+// key deliberately.
 // ============================================================
 import { createClient } from '@supabase/supabase-js';
 
@@ -19,7 +26,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
 
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_ANON_KEY;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseKey) return res.status(500).json({ error: 'server not configured' });
 
   const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');

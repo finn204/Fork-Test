@@ -20,9 +20,17 @@
 // Needs the same VAPID_* env vars as /api/send-push. If a
 // CRON_SECRET env var is set, requires it as a Bearer token —
 // otherwise runs unauthenticated (worst case is an extra nudge).
+//
+// This runs on the server and uses the SERVICE ROLE key when one is
+// set. That key bypasses RLS, which is what keeps this working once
+// app_state is locked to `authenticated` only. It falls back to the
+// anon key so nothing breaks before the env var exists. The service
+// role key must NEVER reach the browser: /api/config serves the anon
+// key deliberately.
 // ============================================================
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
+import { mintToken } from './tick.js';
 
 const DOW = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
 
@@ -299,6 +307,31 @@ async function buildCoffeeCutoffBody(supabase, today, currentTime) {
   return `Coffee cutoff. ${mg} mg in you today. Another one now is still ~${leftAtBed} mg at 11pm, and then you wonder why mornings hurt.`;
 }
 
+// ============================================================
+// A 'clean-check' reminder. Nine days into the rules he had logged
+// four slips and zero clean days — the streak counter had nothing
+// to count. Slips he records reliably; confirmations he does not.
+//
+// So this one ships a "Clean day" button on the notification and
+// writes straight through /api/tick. No app, no unlock, one tap.
+// It goes silent once the day is settled either way.
+// ============================================================
+async function buildCleanCheck(supabase, today) {
+  const { data: sRow } = await supabase
+    .from('app_state').select('data').eq('key', 'streaks').maybeSingle();
+  if (!sRow || !sRow.data || !sRow.data['streaks:v1']) return null;
+
+  const streaks = sRow.data['streaks:v1'];
+  if ((streaks.checks || {})[today]) return null;   // already confirmed clean
+
+  const slips = streaks.slips || {};
+  const drank = (slips.alcohol || []).indexOf(today) !== -1;
+  const vaped = (slips.nicotine || []).indexOf(today) !== -1;
+  if (drank || vaped) return null;                  // already recorded a slip
+
+  return 'No drink, no nicotine today? Tap it and the streak counts. Leave it and it counts nothing.';
+}
+
 export default async function handler(req, res) {
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
@@ -307,7 +340,7 @@ export default async function handler(req, res) {
   }
 
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_ANON_KEY;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
   const vapidPublic = process.env.VAPID_PUBLIC_KEY;
   const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
   const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@example.com';
@@ -342,16 +375,30 @@ export default async function handler(req, res) {
         else if (item.type === 'callout') body = await buildCalloutBody(supabase, today, dow);
         else if (item.type === 'food-check') body = await buildFoodCheckBody(supabase, today, currentTime);
         else if (item.type === 'coffee-cutoff') body = await buildCoffeeCutoffBody(supabase, today, currentTime);
+        else if (item.type === 'clean-check') body = await buildCleanCheck(supabase, today);
         else body = item.message || (item.label ? item.label + '.' : 'Reminder');
 
         // stale-leads returns null when there's nothing overdue — still
         // counts as "checked" for today (stamped below) but sends nothing.
         if (body === null) continue;
 
+        /* Only a clean-check carries a button today; the token is
+           minted per notification and spent once (see /api/tick). */
+        let actions = null, token = null;
+        if (item.type === 'clean-check') {
+          try {
+            token = await mintToken(supabase, 'clean-day', today);
+            actions = [{ action: 'clean', title: 'Clean day' }];
+          } catch (e) { token = null; actions = null; }
+        }
+
         const payload = JSON.stringify({
           title: item.label || 'Reminder',
           body,
-          url: item.type === 'food-check' ? '/food-log.html'
+          actions,
+          token,
+          url: item.type === 'clean-check' ? '/index.html'
+            : item.type === 'food-check' ? '/food-log.html'
             : item.type === 'coffee-cutoff' ? '/caffeine.html'
             : item.type === 'stale-leads' ? '/business.html'
             : (item.type === 'digest' || item.type === 'callout') ? '/index.html'

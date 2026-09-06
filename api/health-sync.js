@@ -26,6 +26,13 @@
 // {"steps":7724,"sleepHours":}. Rather than have that silently fail
 // the whole day's sync (steps included), we sanitize obviously-empty
 // "key": slots out of the raw text before parsing.
+//
+// This runs on the server and uses the SERVICE ROLE key when one is
+// set. That key bypasses RLS, which is what keeps this working once
+// app_state is locked to `authenticated` only. It falls back to the
+// anon key so nothing breaks before the env var exists. The service
+// role key must NEVER reach the browser: /api/config serves the anon
+// key deliberately.
 // ============================================================
 import { createClient } from '@supabase/supabase-js';
 
@@ -58,7 +65,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
 
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_ANON_KEY;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
   const secret = process.env.HEALTH_SYNC_SECRET;
   if (!supabaseUrl || !supabaseKey || !secret) {
     return res.status(500).json({ error: 'server not configured' });

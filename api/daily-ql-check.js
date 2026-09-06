@@ -15,6 +15,13 @@
 // (Vercel sends this automatically for its own cron calls once
 // the env var exists) — otherwise runs unauthenticated, since the
 // worst case of someone else triggering it is an extra nudge.
+//
+// This runs on the server and uses the SERVICE ROLE key when one is
+// set. That key bypasses RLS, which is what keeps this working once
+// app_state is locked to `authenticated` only. It falls back to the
+// anon key so nothing breaks before the env var exists. The service
+// role key must NEVER reach the browser: /api/config serves the anon
+// key deliberately.
 // ============================================================
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
@@ -39,7 +46,7 @@ export default async function handler(req, res) {
   }
 
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_ANON_KEY;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
   const vapidPublic = process.env.VAPID_PUBLIC_KEY;
   const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
   const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@example.com';
