@@ -47,6 +47,27 @@ function runsToday(item, dow) {
   return item.days.indexOf(dow) !== -1;
 }
 
+// Which NZ day a millisecond timestamp belongs to.
+function dayOf(ts) {
+  return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' });
+}
+
+// Most reminders fire once and are done for the day. One with
+// `repeatMins` keeps coming back on that interval until `until`,
+// which is how the nagging ones work — they only go quiet when the
+// thing they are nagging about is actually done (their body builder
+// returns null, so nothing is sent).
+function isDue(item, today, currentTime, nowMs, dow) {
+  if (item.enabled === false) return false;
+  if (!runsToday(item, dow)) return false;
+  if (!item.time || item.time > currentTime) return false;
+  if (!item.repeatMins) return item.lastFiredDate !== today;
+  if (item.until && currentTime > item.until) return false;
+  const last = item.lastFiredAt ? Date.parse(item.lastFiredAt) : 0;
+  if (!last || dayOf(last) !== today) return true;
+  return (nowMs - last) >= item.repeatMins * 60000;
+}
+
 // A 'digest' reminder ignores its stored .message and gets a fresh
 // one built from today's real numbers across the other app_state
 // rows — QLs logged, water reminders actually hit vs how many were
@@ -221,6 +242,63 @@ async function buildCalloutBody(supabase, today, dow) {
   ], today).trim();
 }
 
+// ============================================================
+// A 'food-check' reminder. Repeats through the day and only goes
+// quiet once he has actually logged something. Returning null is
+// how it shuts up: the engine treats null as "nothing to send".
+//
+// Nine days of history when this was written: 7 food entries
+// across 2 days. Logging is the habit that dies first, so this one
+// nags rather than asking once.
+// ============================================================
+const FOOD_TARGET = 3;   // meals/items that count as "logged today"
+
+async function buildFoodCheckBody(supabase, today, currentTime) {
+  const { data: foodRow } = await supabase.from('app_state').select('data').eq('key', 'food').maybeSingle();
+  if (!foodRow || !foodRow.data || !foodRow.data['food:logs']) return null;  // no row: say nothing
+
+  const logs = foodRow.data['food:logs'] || [];
+  const n = logs.filter((l) => l.ts && dayOf(l.ts) === today).length;
+  if (n >= FOOD_TARGET) return null;   // done for today
+
+  const late = currentTime >= '19:00';
+  if (n === 0) {
+    return late
+      ? 'Nothing logged all day. You ate. You just cannot be bothered writing it down.'
+      : 'Food log is empty. Two taps. Do it now, not later.';
+  }
+  return late
+    ? `${n} of ${FOOD_TARGET} logged and the day is nearly gone. Finish it.`
+    : `Only ${n} logged today. Tap a usual, it takes two seconds.`;
+}
+
+// ============================================================
+// A 'coffee-cutoff' reminder. Caffeine has roughly a 5-hour half
+// life, so a 128 mg flat white at 3:26pm — which is in his log —
+// still has about 45 mg working at an 11pm bedtime. He reports
+// waking up knackered on 7-8 hours, and that is a live suspect.
+// Fires at the cutoff with today's real intake.
+// ============================================================
+const CAFFEINE_HALF_LIFE_H = 5;
+const BEDTIME_H = 23;
+
+async function buildCoffeeCutoffBody(supabase, today, currentTime) {
+  const { data: cafRow } = await supabase.from('app_state').select('data').eq('key', 'caffeine').maybeSingle();
+  if (!cafRow || !cafRow.data || !cafRow.data['caf:logs']) return null;
+
+  const logs = (cafRow.data['caf:logs'] || []).filter((c) => c.ts && dayOf(c.ts) === today);
+  const mg = logs.reduce((sum, c) => sum + (c.mg || 0), 0);
+
+  // What one more standard coffee now would still leave at bedtime.
+  const hoursToBed = Math.max(0, BEDTIME_H - Number(currentTime.slice(0, 2)));
+  const leftAtBed = Math.round(130 * Math.pow(0.5, hoursToBed / CAFFEINE_HALF_LIFE_H));
+
+  if (!logs.length) {
+    return `Coffee cutoff. None logged today. One from here is still ~${leftAtBed} mg in you at 11pm.`;
+  }
+  return `Coffee cutoff. ${mg} mg in you today. Another one now is still ~${leftAtBed} mg at 11pm, and then you wonder why mornings hurt.`;
+}
+
 export default async function handler(req, res) {
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
@@ -244,12 +322,8 @@ export default async function handler(req, res) {
     const { data: remRow } = await supabase.from('app_state').select('data').eq('key', 'reminders').maybeSingle();
     const items = (remRow && remRow.data && remRow.data.items) || [];
 
-    const due = items.filter((item) =>
-      item.enabled !== false &&
-      runsToday(item, dow) &&
-      item.time && item.time <= currentTime &&
-      item.lastFiredDate !== today
-    );
+    const nowMs = Date.now();
+    const due = items.filter((item) => isDue(item, today, currentTime, nowMs, dow));
 
     if (!due.length) return res.status(200).json({ ok: true, sent: 0, checked: items.length });
 
@@ -266,6 +340,8 @@ export default async function handler(req, res) {
         if (item.type === 'digest') body = await buildDigestBody(supabase, today, currentTime, items, dow);
         else if (item.type === 'stale-leads') body = await buildStaleLeadsBody(supabase, today);
         else if (item.type === 'callout') body = await buildCalloutBody(supabase, today, dow);
+        else if (item.type === 'food-check') body = await buildFoodCheckBody(supabase, today, currentTime);
+        else if (item.type === 'coffee-cutoff') body = await buildCoffeeCutoffBody(supabase, today, currentTime);
         else body = item.message || (item.label ? item.label + '.' : 'Reminder');
 
         // stale-leads returns null when there's nothing overdue — still
@@ -275,7 +351,9 @@ export default async function handler(req, res) {
         const payload = JSON.stringify({
           title: item.label || 'Reminder',
           body,
-          url: item.type === 'stale-leads' ? '/business.html'
+          url: item.type === 'food-check' ? '/food-log.html'
+            : item.type === 'coffee-cutoff' ? '/caffeine.html'
+            : item.type === 'stale-leads' ? '/business.html'
             : (item.type === 'digest' || item.type === 'callout') ? '/index.html'
             : '/reminders.html'
         });
@@ -299,7 +377,9 @@ export default async function handler(req, res) {
     const { data: freshRow } = await supabase.from('app_state').select('data').eq('key', 'reminders').maybeSingle();
     const freshItems = (freshRow && freshRow.data && freshRow.data.items) || items;
     const dueIds = new Set(due.map((d) => d.id));
-    const updated = freshItems.map((item) => dueIds.has(item.id) ? { ...item, lastFiredDate: today } : item);
+    const stampedAt = new Date().toISOString();
+    const updated = freshItems.map((item) =>
+      dueIds.has(item.id) ? { ...item, lastFiredDate: today, lastFiredAt: stampedAt } : item);
     await supabase.from('app_state').upsert(
       { key: 'reminders', data: { items: updated }, updated_at: new Date().toISOString() }, { onConflict: 'key' }
     );

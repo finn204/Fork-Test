@@ -295,7 +295,9 @@ body::after {
     { id: 'water-2000',    time: '20:00', label: 'Water',    message: 'Last water for the day — get it in.', enabled: true, lastFiredDate: null },
     { id: 'daily-digest',  time: '20:30', label: 'Daily Recap', type: 'digest', enabled: true, lastFiredDate: null },
     { id: 'stale-leads',   time: '09:00', label: 'Stale Leads', type: 'stale-leads', days: [1,2,3,4,5], enabled: true, lastFiredDate: null },
-    { id: 'callout',       time: '21:30', label: 'Straight Up',  type: 'callout',     enabled: true, lastFiredDate: null }
+    { id: 'callout',       time: '21:30', label: 'Straight Up',  type: 'callout',     enabled: true, lastFiredDate: null },
+    { id: 'food-check',    time: '12:00', label: 'Food Log',     type: 'food-check',  repeatMins: 150, until: '21:00', enabled: true, lastFiredDate: null },
+    { id: 'coffee-cutoff', time: '14:00', label: 'Coffee Cutoff', type: 'coffee-cutoff', enabled: true, lastFiredDate: null }
   ];
 
   var $ = function (id) { return document.getElementById(id); };
@@ -408,6 +410,12 @@ body::after {
       } else if (item.type === 'stale-leads') {
         msg.textContent = 'Auto-generated from your CRM follow-up backlog — silent when nothing’s overdue';
         msg.style.fontStyle = 'italic';
+      } else if (item.type === 'food-check') {
+        msg.textContent = 'Repeats every 2.5h until you have logged 3 things. Goes quiet the moment you do.';
+        msg.style.fontStyle = 'italic';
+      } else if (item.type === 'coffee-cutoff') {
+        msg.textContent = 'Your real intake today, and what one more would still leave in you at 11pm.';
+        msg.style.fontStyle = 'italic';
       } else if (item.type === 'callout') {
         msg.textContent = 'Names the worst thing today’s data says — slips, skipped gym, no weigh-in. Not gentle.';
         msg.style.fontStyle = 'italic';
@@ -498,7 +506,9 @@ body::after {
   var AUTO_TYPES = [
     { id: 'daily-digest', time: '20:30', label: 'Daily Recap', type: 'digest', enabled: true, lastFiredDate: null },
     { id: 'stale-leads',  time: '09:00', label: 'Stale Leads', type: 'stale-leads', days: [1,2,3,4,5], enabled: true, lastFiredDate: null },
-    { id: 'callout',      time: '21:30', label: 'Straight Up', type: 'callout',     enabled: true, lastFiredDate: null }
+    { id: 'callout',      time: '21:30', label: 'Straight Up', type: 'callout',     enabled: true, lastFiredDate: null },
+    { id: 'food-check',    time: '12:00', label: 'Food Log',     type: 'food-check',  repeatMins: 150, until: '21:00', enabled: true, lastFiredDate: null },
+    { id: 'coffee-cutoff', time: '14:00', label: 'Coffee Cutoff', type: 'coffee-cutoff', enabled: true, lastFiredDate: null }
   ];
 
   fetchItems().then(function (items) {
