@@ -72,7 +72,11 @@ function isDue(item, today, currentTime, nowMs, dow) {
   if (!item.repeatMins) return item.lastFiredDate !== today;
   if (item.until && currentTime > item.until) return false;
   const last = item.lastFiredAt ? Date.parse(item.lastFiredAt) : 0;
-  if (!last || dayOf(last) !== today) return true;
+  /* No timestamp yet — a repeater that was only just added. Fall back
+     to the once-a-day rule so it still honours the lastFiredDate the
+     UI stamps on creation, instead of firing the moment it appears. */
+  if (!last) return item.lastFiredDate !== today;
+  if (dayOf(last) !== today) return true;
   return (nowMs - last) >= item.repeatMins * 60000;
 }
 
@@ -332,6 +336,37 @@ async function buildCleanCheck(supabase, today) {
   return 'No drink, no nicotine today? Tap it and the streak counts. Leave it and it counts nothing.';
 }
 
+// ============================================================
+// Auto reminder types are backfilled HERE, on the server, not only
+// when reminders.html happens to be opened. The whole point of these
+// is that he does not open the app, so a new type that waits for a
+// page visit never switches itself on — 'clean-check' sat dormant for
+// exactly that reason.
+//
+// reminders.html mirrors this list for its own first-run seeding.
+// Add a type in both places, or it will not appear for someone whose
+// row already exists.
+// ============================================================
+const AUTO_TYPES = [
+  { id: 'daily-digest',  time: '20:30', label: 'Daily Recap',   type: 'digest' },
+  { id: 'stale-leads',   time: '09:00', label: 'Stale Leads',   type: 'stale-leads', days: [1, 2, 3, 4, 5] },
+  { id: 'callout',       time: '21:30', label: 'Straight Up',   type: 'callout' },
+  { id: 'food-check',    time: '12:00', label: 'Food Log',      type: 'food-check', repeatMins: 150, until: '21:00' },
+  { id: 'coffee-cutoff', time: '14:00', label: 'Coffee Cutoff', type: 'coffee-cutoff' },
+  { id: 'clean-check',   time: '21:00', label: 'Clean Day',     type: 'clean-check', repeatMins: 60, until: '23:00' },
+];
+
+// A type added now should not fire retroactively for a time that has
+// already passed today, so it starts stamped as if it had.
+function backfillAutoTypes(items, today, currentTime) {
+  const added = [];
+  for (const a of AUTO_TYPES) {
+    if (items.some((i) => i.type === a.type)) continue;
+    added.push({ ...a, enabled: true, lastFiredDate: a.time <= currentTime ? today : null, lastFiredAt: null });
+  }
+  return added;
+}
+
 export default async function handler(req, res) {
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
@@ -353,7 +388,20 @@ export default async function handler(req, res) {
 
   try {
     const { data: remRow } = await supabase.from('app_state').select('data').eq('key', 'reminders').maybeSingle();
-    const items = (remRow && remRow.data && remRow.data.items) || [];
+    let items = (remRow && remRow.data && remRow.data.items) || [];
+
+    /* Only backfill into a row that already exists. An empty row means
+       reminders.html has never seeded this account, and seeding the
+       whole default set from here would fight with that first run. */
+    if (items.length) {
+      const added = backfillAutoTypes(items, today, currentTime);
+      if (added.length) {
+        items = items.concat(added);
+        await supabase.from('app_state').upsert(
+          { key: 'reminders', data: { items }, updated_at: new Date().toISOString() }, { onConflict: 'key' }
+        );
+      }
+    }
 
     const nowMs = Date.now();
     const due = items.filter((item) => isDue(item, today, currentTime, nowMs, dow));
@@ -364,6 +412,10 @@ export default async function handler(req, res) {
     const subs = (pushRow && pushRow.data && pushRow.data.subs) || [];
 
     let sent = 0;
+    /* Only items that actually went out — or that deliberately chose to
+       stay silent — get stamped. Stamping on a failed send marks a
+       notification delivered that never was, and it is gone for the day. */
+    const handled = new Set();
     if (subs.length) {
       webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
       const deadEndpoints = new Set();
@@ -380,7 +432,7 @@ export default async function handler(req, res) {
 
         // stale-leads returns null when there's nothing overdue — still
         // counts as "checked" for today (stamped below) but sends nothing.
-        if (body === null) continue;
+        if (body === null) { handled.add(item.id); continue; }
 
         /* Only a clean-check carries a button today; the token is
            minted per notification and spent once (see /api/tick). */
@@ -397,7 +449,13 @@ export default async function handler(req, res) {
           body,
           actions,
           token,
-          url: item.type === 'clean-check' ? '/index.html'
+          /* iOS renders no notification action buttons at all, and his
+             only push subscription is web.push.apple.com — the button
+             alone would never reach him. The token rides in the URL as
+             well, so tapping the notification body opens the dashboard
+             and it spends the token on load. Still one tap. */
+          url: item.type === 'clean-check'
+            ? ('/index.html' + (token ? '?tick=' + encodeURIComponent(token) : ''))
             : item.type === 'food-check' ? '/food-log.html'
             : item.type === 'coffee-cutoff' ? '/caffeine.html'
             : item.type === 'stale-leads' ? '/business.html'
@@ -408,7 +466,9 @@ export default async function handler(req, res) {
           try { await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, payload); return true; }
           catch (e) { if (e && (e.statusCode === 410 || e.statusCode === 404)) deadEndpoints.add(s.endpoint); return false; }
         }));
-        sent += results.filter(Boolean).length;
+        const okCount = results.filter(Boolean).length;
+        sent += okCount;
+        if (okCount > 0) handled.add(item.id);
       }
 
       if (deadEndpoints.size) {
@@ -423,15 +483,18 @@ export default async function handler(req, res) {
     // moments ago (which itself read-merge-writes) isn't clobbered.
     const { data: freshRow } = await supabase.from('app_state').select('data').eq('key', 'reminders').maybeSingle();
     const freshItems = (freshRow && freshRow.data && freshRow.data.items) || items;
-    const dueIds = new Set(due.map((d) => d.id));
     const stampedAt = new Date().toISOString();
     const updated = freshItems.map((item) =>
-      dueIds.has(item.id) ? { ...item, lastFiredDate: today, lastFiredAt: stampedAt } : item);
+      handled.has(item.id) ? { ...item, lastFiredDate: today, lastFiredAt: stampedAt } : item);
     await supabase.from('app_state').upsert(
       { key: 'reminders', data: { items: updated }, updated_at: new Date().toISOString() }, { onConflict: 'key' }
     );
 
-    return res.status(200).json({ ok: true, due: due.length, sent, subs: subs.length });
+    return res.status(200).json({
+      ok: true, due: due.length, sent, stamped: handled.size, subs: subs.length,
+      /* No subscription means every reminder today is going nowhere. */
+      warning: subs.length ? undefined : 'no push subscriptions — nothing can be delivered',
+    });
   } catch (e) {
     return res.status(500).json({ error: e && e.message ? e.message : String(e) });
   }

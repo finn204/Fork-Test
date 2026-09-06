@@ -765,5 +765,55 @@ body::after {
   else document.addEventListener('DOMContentLoaded', startSync);
 })();
 </script>
+
+<script>
+/* ===== ?tick=<token> — spend a notification token on load =====
+   iOS shows no action buttons on push notifications, so the "Clean
+   day" tap arrives as a normal notification open carrying the token
+   in the URL. Spend it here, tell him it landed, then strip it from
+   the address bar so a refresh cannot try to reuse a spent token. ===== */
+(function () {
+  'use strict';
+  var m = /[?&]tick=([^&]+)/.exec(location.search);
+  if (!m) return;
+  var token = decodeURIComponent(m[1]);
+
+  function clean() {
+    try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
+  }
+  function toast(text, ok) {
+    var el = document.createElement('div');
+    el.textContent = text;
+    el.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);'
+      + 'bottom:calc(84px + env(safe-area-inset-bottom));z-index:9999;'
+      + 'padding:12px 18px;border-radius:999px;font:600 14px -apple-system,BlinkMacSystemFont,sans-serif;'
+      + 'background:' + (ok ? 'rgba(107,227,164,0.16)' : 'rgba(255,107,107,0.16)') + ';'
+      + 'border:1px solid ' + (ok ? 'rgba(107,227,164,0.5)' : 'rgba(255,107,107,0.5)') + ';'
+      + 'color:' + (ok ? '#6BE3A4' : '#FF8A8A') + ';backdrop-filter:blur(12px);';
+    document.body.appendChild(el);
+    setTimeout(function () { el.remove(); }, 3200);
+  }
+
+  clean();
+  fetch('/api/tick', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: token })
+  }).then(function (r) {
+    if (r.ok) {
+      toast('Clean day logged.', true);
+      /* The streak strip reads localStorage, and sync.js pulls the row
+         it just changed — nudge both rather than leaving a stale count. */
+      window.dispatchEvent(new Event('storage'));
+      return;
+    }
+    return r.json().catch(function () { return {}; }).then(function (j) {
+      toast(j && j.error === 'a slip is already logged for that day'
+        ? 'A slip is already logged for today.'
+        : 'Could not log it. Tick it below.', false);
+    });
+  }).catch(function () { toast('No connection. Tick it below.', false); });
+})();
+</script>
 </body>
 </html>
