@@ -237,6 +237,15 @@ body::after {
 .strip-num{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent,#6BE3A4);line-height:1;}
 .strip-unit{font-size:11px;color:var(--text-tertiary);margin-left:3px;}
 .strip-label{font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-secondary);margin-top:5px;font-weight:600;}
+
+/* steps / sleep vitals strip — read-only mirror of health.html's
+   apple_health row, front and center on the home screen */
+.vitals{display:flex;gap:8px;margin:0 0 14px;}
+.vital-item{flex:1;background:#0E0E10;border:1px solid #1F1F23;border-radius:14px;padding:10px 12px;
+  text-decoration:none;display:block;}
+.vital-num{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text-primary);line-height:1;}
+.vital-num.stale{color:var(--text-tertiary);}
+.vital-label{font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-secondary);margin-top:5px;font-weight:600;}
 </style>
 </head>
 <body>
@@ -274,6 +283,17 @@ body::after {
       <div><span class="strip-num" id="igNum">0</span><span class="strip-unit">days</span></div>
       <div class="strip-label">Off Instagram</div>
     </button>
+  </div>
+
+  <div class="vitals">
+    <a class="vital-item" href="health.html">
+      <div class="vital-num" id="vitSteps">—</div>
+      <div class="vital-label">Steps today</div>
+    </a>
+    <a class="vital-item" href="health.html">
+      <div class="vital-num" id="vitSleep">—</div>
+      <div class="vital-label">Sleep last night</div>
+    </a>
   </div>
 
   <div class="bento">
@@ -404,15 +424,15 @@ body::after {
     </a>
 
     <!-- Wide tile -->
-    <a class="tile wide" href="nova-lite.html" style="--accent:#A78BFA">
+    <a class="tile wide" href="food-chat.html" style="--accent:#A78BFA">
       <div class="tile-top">
         <span class="tile-num">·09</span>
-        <span class="tile-emoji">🧠</span>
+        <span class="tile-emoji">💬</span>
       </div>
       <div class="tile-spacer"></div>
-      <h2 class="tile-title">Nova</h2>
+      <h2 class="tile-title">Tell me what you ate</h2>
       <div class="tile-foot">
-        <span class="tile-sub">Your AI mentor</span>
+        <span class="tile-sub">Type it, it sorts itself into the log</span>
         <span class="tile-arrow">→</span>
       </div>
     </a>
@@ -821,6 +841,50 @@ body::after {
         : 'Could not log it. Tick it below.', false);
     });
   }).catch(function () { toast('No connection. Tick it below.', false); });
+})();
+</script>
+
+<script>
+/* ===== Steps / sleep vitals strip =====
+   Read-only mirror of the 'apple_health' row health.html owns —
+   fetched directly via Supabase REST + realtime, same as health.html
+   itself, deliberately NOT through sync.js/localStorage so this page
+   can never become a second writer on that row. */
+(function () {
+  'use strict';
+  var SUPABASE_URL = window.DASH_SUPABASE_URL || '';
+  var SUPABASE_KEY = window.DASH_SUPABASE_KEY || '';
+  function dateKey(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+
+  function render(days) {
+    days = days || {};
+    var today = days[dateKey(new Date())] || {};
+    var stepsEl = document.getElementById('vitSteps'), sleepEl = document.getElementById('vitSleep');
+    if (!stepsEl || !sleepEl) return;
+    if (today.steps != null) { stepsEl.textContent = Math.round(today.steps).toLocaleString(); stepsEl.classList.remove('stale'); }
+    else { stepsEl.textContent = 'Not synced'; stepsEl.classList.add('stale'); }
+    if (today.sleepHours != null) { sleepEl.textContent = (Math.round(today.sleepHours * 10) / 10) + 'h'; sleepEl.classList.remove('stale'); }
+    else { sleepEl.textContent = 'Not synced'; sleepEl.classList.add('stale'); }
+  }
+
+  if (!SUPABASE_URL || !SUPABASE_KEY) return;
+  fetch(SUPABASE_URL + '/rest/v1/app_state?key=eq.apple_health&select=data', {
+    headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY }
+  })
+    .then(function (r) { return r.json(); })
+    .then(function (rows) { render(rows && rows[0] && rows[0].data && rows[0].data.days); })
+    .catch(function () {});
+
+  if (window.supabase) {
+    try {
+      var supa = (window.dashAuth && window.dashAuth.client) ? window.dashAuth.client : window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      supa.channel('app_state_apple_health_home')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state', filter: 'key=eq.apple_health' }, function (payload) {
+          render(payload.new && payload.new.data && payload.new.data.days);
+        })
+        .subscribe();
+    } catch (e) {}
+  }
 })();
 </script>
 </body>

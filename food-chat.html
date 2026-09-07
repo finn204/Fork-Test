@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<meta charset="UTF-8" />
+<script src="/api/config"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<script src="sync.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Log Food · Dashboard</title>
+<!-- ============================================================
+ * FOOD CHAT — a free, no-API-key way to log food by just typing
+ * what you ate in plain sentences. No LLM call, no per-message
+ * cost: a local parser splits the message on "and"/commas/etc into
+ * separate food-log entries and writes them straight to the same
+ * 'food:logs' data food-log.html reads, via the same sync.js
+ * appKey/syncedKeys pair — both pages are legitimate writers of the
+ * identical key, so there's no blind-overwrite risk between them
+ * (unlike sharing a row across MISMATCHED syncedKeys lists).
+ * ============================================================ -->
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root { --accent: #6EE7B7; --accent-2: #67E8F9; --bg: #05060c; --fg: #e9ecf5; --muted: rgba(233,236,245,.55); --line: rgba(255,255,255,.1); }
+html, body { background: var(--bg); }
+body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; color: var(--fg); min-height: 100vh; }
+
+.wrap { max-width: 560px; margin: 0 auto; padding: 28px 18px 60px; }
+.top { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+.orb { width: 60px; height: 60px; border-radius: 50%; position: relative; flex-shrink: 0;
+  background: radial-gradient(circle at 32% 28%, #eafff6, var(--accent) 42%, #1f8f66 100%);
+  box-shadow: 0 0 22px -2px var(--accent), inset 0 -6px 14px rgba(0,0,0,.25);
+  animation: orbFloat 4s ease-in-out infinite; font-size: 26px; display: flex; align-items: center; justify-content: center; }
+@keyframes orbFloat { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
+.orb.happy { animation: orbFloat 0.6s ease-in-out 1; }
+
+.title h1 { font-family: 'Times New Roman', Georgia, serif; font-style: italic; font-size: 26px; font-weight: 500;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.title .role { font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+
+.feed { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.msg { max-width: 90%; }
+.msg.user { align-self: flex-end; }
+.msg.coach { align-self: flex-start; width: 100%; }
+.bubble { border-radius: 14px; padding: 13px 15px; font-size: 14.5px; line-height: 1.55; }
+.msg.user .bubble { background: rgba(255,255,255,.05); border: 1px solid var(--line); }
+.msg.coach .bubble { background: rgba(255,255,255,.04); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-left: 3px solid var(--accent); }
+.tag { display: inline-block; margin-bottom: 9px; font-family: ui-monospace, monospace; font-size: 9.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #04140d; background: var(--accent); padding: 3px 9px; border-radius: 999px; }
+.reply-list { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+.reply-list li { line-height: 1.45; }
+
+.composer { display: flex; gap: 9px; }
+.composer input { flex: 1; background: rgba(255,255,255,.03); border: 1px solid var(--line); color: var(--fg); border-radius: 12px; padding: 13px 15px; font-size: 14.5px; outline: none; }
+.composer input:focus { border-color: var(--accent); }
+.composer button { width: 50px; border: 0; border-radius: 12px; cursor: pointer; color: #04140d; background: var(--accent); font-size: 18px; }
+.composer button:active { transform: scale(.94); }
+
+.viewlink { display: block; text-align: center; margin-top: 16px; font-size: 12px; color: var(--muted); text-decoration: none; }
+.viewlink:hover { color: var(--accent-2); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="orb" id="orb">🍽️</div>
+      <div class="title"><h1>Log Food</h1><div class="role">just say what you ate</div></div>
+    </div>
+
+    <div class="feed" id="feed"></div>
+
+    <div class="composer">
+      <input id="chatInput" placeholder="e.g. 3 pieces salmon avo sushi and 2 katsu chicken" autocomplete="off" />
+      <button id="send" aria-label="Send">→</button>
+    </div>
+
+    <a class="viewlink" href="food-log.html">View the full food log →</a>
+  </div>
+
+<script>
+(function(){
+  const STORE_KEY = 'food:logs';
+  const feed = document.getElementById('feed');
+  const input = document.getElementById('chatInput');
+  const orb = document.getElementById('orb');
+
+  function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function addUser(t){ const e = document.createElement('div'); e.className = 'msg user'; e.innerHTML = '<div class="bubble">' + esc(t) + '</div>'; feed.appendChild(e); scroll(); }
+  function addCoach(html){ const e = document.createElement('div'); e.className = 'msg coach'; e.innerHTML = '<div class="bubble"><span class="tag">Logged</span><div>' + html + '</div></div>'; feed.appendChild(e); scroll(); return e; }
+  function scroll(){ window.scrollTo(0, document.body.scrollHeight); }
+
+  // ---- the actual "sorting": split free text into separate items ----
+  // Splits on clear list separators only (and / , / ; / newline / +) —
+  // deliberately NOT on "with", since "chicken with rice" is one dish,
+  // not two.
+  function splitItems(text){
+    return text
+      .split(/\s*(?:,|;|\n|\+|&|\band\b)\s*/i)
+      .map(s => s.trim())
+      .filter(Boolean);
+  }
+
+  function load(){ try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch(e){ return []; } }
+  function save(items){ localStorage.setItem(STORE_KEY, JSON.stringify(items)); }
+
+  function logItems(names){
+    const list = load();
+    const now = Date.now();
+    names.forEach((n, i) => list.push({ id: 'f' + (now + i) + Math.floor(Math.random()*1000), n, note: '', ts: now + i }));
+    save(list);
+  }
+
+  function ask(text){
+    text = (text || '').trim();
+    if (!text) return;
+    addUser(text);
+    input.value = '';
+    const items = splitItems(text);
+    if (!items.length) { addCoach("Didn't catch a food in that — try again?"); return; }
+    logItems(items);
+    orb.classList.remove('happy'); void orb.offsetWidth; orb.classList.add('happy');
+    const list = items.length === 1
+      ? esc(items[0])
+      : '<ul class="reply-list">' + items.map(i => '<li>' + esc(i) + '</li>').join('') + '</ul>';
+    addCoach((items.length === 1 ? 'Got it — logged: ' : 'Logged ' + items.length + ' things:') + (items.length === 1 ? '<b>' + list + '</b>' : list));
+  }
+
+  document.getElementById('send').addEventListener('click', () => ask(input.value));
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') ask(input.value); });
+
+  addCoach("Tell me what you ate, in your own words — <b>\"2 eggs and toast\"</b>, <b>\"a coffee\"</b>, whatever. I'll split it into separate log entries automatically. No AI, no cost — just splits on the obvious words like <b>and</b>/commas.");
+
+  if (window.initCloudSync) {
+    window.initCloudSync({ appKey: 'food', syncedKeys: [STORE_KEY] });
+  }
+})();
+</script>
+</body>
+</html>
