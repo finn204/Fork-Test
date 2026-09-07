@@ -1,6 +1,7 @@
 // ============================================================
 // GET/POST /api/daily-ql-check — meant to be hit by Vercel Cron,
-// once a day, in the evening NZ time.
+// once a day, in the evening NZ time. Weekdays only — QLs are a
+// work-day job, so Sat/Sun it returns immediately without nudging.
 //
 // Checks today's Qualified Leads count (the 'ql' app_state row
 // business.html's tracker writes to) and — if it's under the
@@ -14,6 +15,13 @@
 // (Vercel sends this automatically for its own cron calls once
 // the env var exists) — otherwise runs unauthenticated, since the
 // worst case of someone else triggering it is an extra nudge.
+//
+// This runs on the server and uses the SERVICE ROLE key when one is
+// set. That key bypasses RLS, which is what keeps this working once
+// app_state is locked to `authenticated` only. It falls back to the
+// anon key so nothing breaks before the env var exists. The service
+// role key must NEVER reach the browser: /api/config serves the anon
+// key deliberately.
 // ============================================================
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
@@ -24,6 +32,12 @@ function todayNZ() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' });
 }
 
+// Qualified leads are a weekday job. Sat/Sun the nudge stays quiet.
+function isWeekendNZ() {
+  const day = new Date().toLocaleDateString('en-US', { timeZone: 'Pacific/Auckland', weekday: 'short' });
+  return day === 'Sat' || day === 'Sun';
+}
+
 export default async function handler(req, res) {
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
@@ -32,13 +46,15 @@ export default async function handler(req, res) {
   }
 
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_ANON_KEY;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
   const vapidPublic = process.env.VAPID_PUBLIC_KEY;
   const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
   const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@example.com';
   if (!supabaseUrl || !supabaseKey || !vapidPublic || !vapidPrivate) {
     return res.status(500).json({ error: 'server not configured' });
   }
+
+  if (isWeekendNZ()) return res.status(200).json({ ok: true, skipped: 'weekend' });
 
   const supabase = createClient(supabaseUrl, supabaseKey);
   const today = todayNZ();

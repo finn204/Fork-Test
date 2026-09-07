@@ -1,7 +1,7 @@
 # Dashboard — Setup Guide (fork → deploy in ~5 min)
 
 This is a static dashboard (plain HTML/JS) that deploys on **Vercel** and syncs across your
-devices with **Supabase**. WHOOP is an optional add-on.
+devices with **Supabase**.
 
 ---
 
@@ -12,8 +12,9 @@ devices with **Supabase**. WHOOP is an optional add-on.
 3. Framework Preset: **Other**. Root Directory: **`./`**. Build/output: leave blank (static).
 4. **Deploy.** You'll get a URL like `https://your-app.vercel.app`.
 
-The dashboard opens to a **password screen** — the default password is in
-[`lock.js`](lock.js) (`var PASSWORD = "qwer"`). Change it to whatever you want.
+The dashboard opens to a **sign-in gate** backed by Supabase Auth. There is no
+default password: you create your own account the first time you open it. See
+[`SETUP-AUTH.md`](SETUP-AUTH.md).
 
 ---
 
@@ -79,26 +80,7 @@ Replace the old URL/key in these files:
 
 ---
 
-## 3. WHOOP (optional)
-
-1. **developer.whoop.com** → create an app.
-2. Set its **Redirect URI** to exactly: `https://your-app.vercel.app/api/whoop-callback`
-   (use your real Vercel domain — add every domain you'll open the site from).
-3. Put your app's **Client ID** in [`health.html`](health.html) (`const CLIENT_ID = '...'`),
-   and add these in Vercel → **Settings → Environment Variables**, then redeploy:
-
-| Variable | Value |
-|---|---|
-| `WHOOP_CLIENT_ID` | your WHOOP app's Client ID |
-| `WHOOP_CLIENT_SECRET` | your WHOOP app's Client Secret (**secret**) |
-
-4. Open the site at that exact domain → Health page → **Connect WHOOP**.
-
-> The callback auto-detects the domain, so you do **not** need a `WHOOP_REDIRECT_URI` env var.
-
----
-
-## 4. Nova (AI mentor / gym coach) — optional
+## 3. Nova (AI mentor / gym coach) — optional
 
 No setup or key in the repo. Each user **pastes their own Anthropic API key** on the
 **Nova** tile; it's stored only in their browser and sent straight to Anthropic. Get a key at
@@ -110,5 +92,4 @@ console.anthropic.com.
 1. Fork → import to Vercel → deploy.
 2. New Supabase → run the **SQL** above → paste your **URL + anon key** into `sync.js`,
    `topbar.js`, `gym.html`.
-3. (Optional) WHOOP: Client ID in `health.html` + the two env vars in Vercel.
-4. Change the password in `lock.js`. Done.
+3. Open the site and **create your account** on the sign-in gate (see `SETUP-AUTH.md`). Done.

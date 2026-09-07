@@ -129,7 +129,7 @@ body::after {
 .rem-time {
   font-family: var(--font-mono);
   font-size: 15px; font-weight: 600; color: var(--text-primary);
-  flex-shrink: 0; width: 58px;
+  flex-shrink: 0; width: 104px;
   outline: none; border: 0; background: transparent; color: inherit;
   font-family: inherit; padding: 0;
 }
@@ -148,6 +148,25 @@ body::after {
 }
 .rem-message[contenteditable="true"] {
   outline: 1px solid rgba(255,255,255,0.14); background: rgba(0,0,0,0.22);
+}
+
+/* Mon-Sun picker. All seven lit = every day. */
+.rem-days { display: flex; gap: 3px; margin-top: 6px; }
+.rem-day {
+  width: 20px; height: 20px; padding: 0;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-family: inherit; font-size: 9.5px; font-weight: 700;
+  line-height: 1; cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.rem-day:hover { border-color: rgba(255,255,255,0.24); }
+.rem-day.on {
+  background: rgba(107,227,164,0.16);
+  border-color: rgba(107,227,164,0.45);
+  color: var(--success);
 }
 
 /* iOS-style pill toggle */
@@ -221,7 +240,14 @@ body::after {
 @media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
   .gm-card { padding: 16px; }
-  .rem-time { width: 50px; font-size: 14px; }
+  /* A 100px time field plus the label side by side leaves the message
+     wrapping to three lines. Stack instead: time and the controls on
+     one line, the label, message and day picker full width beneath. */
+  .rem-row { flex-wrap: wrap; row-gap: 8px; }
+  .rem-time { width: 104px; font-size: 15px; order: 1; }
+  .rem-toggle { order: 2; margin-left: auto; }
+  .rem-delete { order: 3; opacity: 1; }
+  .rem-body { order: 4; flex-basis: 100%; min-width: 100%; }
 }
 </style>
 </head>
@@ -234,6 +260,9 @@ body::after {
   <div class="section">
     <div class="section-title">Your Reminders</div>
     <div class="gm-card">
+      <div id="remSaveWarn" style="display:none;margin:0 0 12px;padding:10px 12px;border-radius:10px;
+           background:rgba(255,107,107,0.12);border:1px solid rgba(255,107,107,0.45);
+           color:#FF8A8A;font-size:13px;font-weight:600;"></div>
       <ul class="rem-list" id="remList"></ul>
 
       <div class="gm-input-wrap">
@@ -268,7 +297,11 @@ body::after {
     { id: 'water-1800',    time: '18:00', label: 'Water',    message: 'Drink some water.', enabled: true, lastFiredDate: null },
     { id: 'water-2000',    time: '20:00', label: 'Water',    message: 'Last water for the day — get it in.', enabled: true, lastFiredDate: null },
     { id: 'daily-digest',  time: '20:30', label: 'Daily Recap', type: 'digest', enabled: true, lastFiredDate: null },
-    { id: 'stale-leads',   time: '09:00', label: 'Stale Leads', type: 'stale-leads', enabled: true, lastFiredDate: null }
+    { id: 'stale-leads',   time: '09:00', label: 'Stale Leads', type: 'stale-leads', days: [1,2,3,4,5], enabled: true, lastFiredDate: null },
+    { id: 'callout',       time: '21:30', label: 'Straight Up',  type: 'callout',     enabled: true, lastFiredDate: null },
+    { id: 'food-check',    time: '12:00', label: 'Food Log',     type: 'food-check',  repeatMins: 150, until: '21:00', enabled: true, lastFiredDate: null },
+    { id: 'coffee-cutoff', time: '14:00', label: 'Coffee Cutoff', type: 'coffee-cutoff', enabled: true, lastFiredDate: null },
+    { id: 'clean-check',   time: '21:00', label: 'Clean Day',    type: 'clean-check', repeatMins: 60, until: '23:00', enabled: true, lastFiredDate: null }
   ];
 
   var $ = function (id) { return document.getElementById(id); };
@@ -276,11 +309,21 @@ body::after {
   var cachedItems = null;
   var seeded = false;
 
+  /* Send the signed-in session's token, not the publishable key —
+     the latter stops working the moment app_state is restricted to
+     `authenticated`. auth.js supplies it; this falls back so the page
+     still works if auth.js bailed (no config). */
+  function restHeaders(extra) {
+    if (window.dashRestHeaders) return window.dashRestHeaders(extra);
+    var out = { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY };
+    if (extra) Object.keys(extra).forEach(function (k) { out[k] = extra[k]; });
+    return Promise.resolve(out);
+  }
+
   function fetchItems() {
     if (!SUPABASE_URL || !SUPABASE_KEY) return Promise.resolve(null);
-    return fetch(SUPABASE_URL + '/rest/v1/app_state?key=eq.reminders&select=data', {
-      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY }
-    })
+    return restHeaders()
+      .then(function (h) { return fetch(SUPABASE_URL + '/rest/v1/app_state?key=eq.reminders&select=data', { headers: h }); })
       .then(function (r) { return r.json(); })
       .then(function (rows) { return (rows && rows[0] && rows[0].data && rows[0].data.items) || null; })
       .catch(function () { return null; });
@@ -294,14 +337,27 @@ body::after {
       items = mutate(items.slice());
       cachedItems = items;
       if (!SUPABASE_URL || !SUPABASE_KEY) return;
-      return fetch(SUPABASE_URL + '/rest/v1/app_state?on_conflict=key', {
-        method: 'POST',
-        headers: {
-          apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY,
-          'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates'
-        },
-        body: JSON.stringify({ key: 'reminders', data: { items: items }, updated_at: new Date().toISOString() })
-      }).catch(function () {});
+      return restHeaders({ 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' })
+        .then(function (h) {
+          return fetch(SUPABASE_URL + '/rest/v1/app_state?on_conflict=key', {
+            method: 'POST', headers: h,
+            body: JSON.stringify({ key: 'reminders', data: { items: items }, updated_at: new Date().toISOString() })
+          });
+        })
+        .then(function (r) {
+          /* A rejected write used to be swallowed here, so an edit that
+             never saved looked exactly like one that did. */
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          var w = document.getElementById('remSaveWarn');
+          if (w) w.style.display = 'none';
+        })
+        .catch(function (e) {
+          var w = document.getElementById('remSaveWarn');
+          if (w) {
+            w.textContent = 'Not saved (' + e.message + '). Reload the page and try again.';
+            w.style.display = '';
+          }
+        });
     });
   }
 
@@ -381,6 +437,18 @@ body::after {
       } else if (item.type === 'stale-leads') {
         msg.textContent = 'Auto-generated from your CRM follow-up backlog — silent when nothing’s overdue';
         msg.style.fontStyle = 'italic';
+      } else if (item.type === 'clean-check') {
+        msg.textContent = 'Has a “Clean day” button on the notification itself — one tap, no app. Silent once the day is settled.';
+        msg.style.fontStyle = 'italic';
+      } else if (item.type === 'food-check') {
+        msg.textContent = 'Repeats every 2.5h until you have logged 3 things. Goes quiet the moment you do.';
+        msg.style.fontStyle = 'italic';
+      } else if (item.type === 'coffee-cutoff') {
+        msg.textContent = 'Your real intake today, and what one more would still leave in you at 11pm.';
+        msg.style.fontStyle = 'italic';
+      } else if (item.type === 'callout') {
+        msg.textContent = 'Names the worst thing today’s data says — slips, skipped gym, no weigh-in. Not gentle.';
+        msg.style.fontStyle = 'italic';
       } else {
         msg.textContent = item.message || '';
         msg.contentEditable = 'true';
@@ -394,7 +462,35 @@ body::after {
         msg.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); msg.blur(); } });
       }
 
-      body.append(label, msg);
+      /* Mon-first so it reads like a work week; value is 0=Sun.
+         Empty or all-seven both mean "every day" to the cron. */
+      var daysWrap = document.createElement('div');
+      daysWrap.className = 'rem-days';
+      [['M',1],['T',2],['W',3],['T',4],['F',5],['S',6],['S',0]].forEach(function (d) {
+        var on = !Array.isArray(item.days) || !item.days.length || item.days.indexOf(d[1]) !== -1;
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'rem-day' + (on ? ' on' : '');
+        b.textContent = d[0];
+        b.title = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d[1]];
+        b.addEventListener('click', function () {
+          saveItems(function (list) {
+            var t = list.find(function (x) { return x.id === item.id; });
+            if (!t) return list;
+            var cur = (Array.isArray(t.days) && t.days.length) ? t.days.slice() : [0,1,2,3,4,5,6];
+            var at = cur.indexOf(d[1]);
+            if (at === -1) cur.push(d[1]); else cur.splice(at, 1);
+            /* Never let it end up on nothing — that would be a reminder
+               that silently never fires. Turning the last one off means
+               "every day" again. */
+            t.days = (cur.length === 0 || cur.length === 7) ? null : cur.sort();
+            return list;
+          }).then(render);
+        });
+        daysWrap.appendChild(b);
+      });
+
+      body.append(label, msg, daysWrap);
 
       var toggle = document.createElement('button');
       toggle.type = 'button';
@@ -439,7 +535,11 @@ body::after {
   // the default set looked like the day they first opened this page.
   var AUTO_TYPES = [
     { id: 'daily-digest', time: '20:30', label: 'Daily Recap', type: 'digest', enabled: true, lastFiredDate: null },
-    { id: 'stale-leads',  time: '09:00', label: 'Stale Leads', type: 'stale-leads', enabled: true, lastFiredDate: null }
+    { id: 'stale-leads',  time: '09:00', label: 'Stale Leads', type: 'stale-leads', days: [1,2,3,4,5], enabled: true, lastFiredDate: null },
+    { id: 'callout',      time: '21:30', label: 'Straight Up', type: 'callout',     enabled: true, lastFiredDate: null },
+    { id: 'food-check',    time: '12:00', label: 'Food Log',     type: 'food-check',  repeatMins: 150, until: '21:00', enabled: true, lastFiredDate: null },
+    { id: 'coffee-cutoff', time: '14:00', label: 'Coffee Cutoff', type: 'coffee-cutoff', enabled: true, lastFiredDate: null },
+    { id: 'clean-check',   time: '21:00', label: 'Clean Day',    type: 'clean-check', repeatMins: 60, until: '23:00', enabled: true, lastFiredDate: null }
   ];
 
   fetchItems().then(function (items) {
@@ -447,12 +547,19 @@ body::after {
       cachedItems = items;
       render();
       var missing = AUTO_TYPES.filter(function (a) { return !items.some(function (i) { return i.type === a.type; }); });
-      if (missing.length) {
+      /* Stale Leads predates the day picker, so a row seeded before it
+         existed still has no `days` and would nag on a Saturday. Move
+         it to weekdays once; after that his own edits stand. */
+      var needsDays = items.some(function (i) { return i.type === 'stale-leads' && !Array.isArray(i.days); });
+      if (missing.length || needsDays) {
         saveItems(function (list) {
           missing.forEach(function (a) {
             if (!list.some(function (i) { return i.type === a.type; })) {
               list.push(Object.assign({}, a, { lastFiredDate: initLastFired(a.time) }));
             }
+          });
+          list.forEach(function (i) {
+            if (i.type === 'stale-leads' && !Array.isArray(i.days)) i.days = [1, 2, 3, 4, 5];
           });
           return list;
         }).then(function () { cachedItems = null; fetchItems().then(function (fresh) { cachedItems = fresh; render(); }); });

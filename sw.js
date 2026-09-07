@@ -15,14 +15,41 @@ self.addEventListener('push', (event) => {
     body: data.body || '',
     icon: '/apple-touch-icon.png',
     badge: '/apple-touch-icon.png',
-    data: { url: data.url || '/' },
+    data: { url: data.url || '/', token: data.token || null },
   };
+  // Buttons on the notification itself, so a tick never needs the app
+  // opened. `data.token` authorises exactly one write (see /api/tick).
+  if (Array.isArray(data.actions) && data.actions.length) {
+    options.actions = data.actions.slice(0, 2);   // 2 is all most platforms show
+  }
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || '/';
+  const info = event.notification.data || {};
+  const url = info.url || '/';
+
+  // A button press writes straight through the API and never opens a
+  // window. Anything else (tapping the body) opens the dashboard.
+  if (event.action && info.token) {
+    event.waitUntil(
+      fetch('/api/tick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: info.token }),
+      })
+        .then((r) => r.ok
+          ? self.registration.showNotification('Logged', { body: 'Clean day recorded.', icon: '/apple-touch-icon.png', badge: '/apple-touch-icon.png', tag: 'tick-ok' })
+          : self.registration.showNotification('Did not save', { body: 'Open the dashboard and tick it there.', icon: '/apple-touch-icon.png', badge: '/apple-touch-icon.png', tag: 'tick-fail', data: { url: '/index.html' } }))
+        .catch(() => self.registration.showNotification('Did not save', {
+          body: 'No connection. Open the dashboard and tick it there.',
+          icon: '/apple-touch-icon.png', badge: '/apple-touch-icon.png', tag: 'tick-fail', data: { url: '/index.html' },
+        }))
+    );
+    return;
+  }
+
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const client of list) {

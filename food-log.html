@@ -174,7 +174,44 @@ body::after {
 .gm-row:hover .goal-delete { opacity: 1; }
 .goal-delete:hover { color: var(--danger); }
 
+/* One-tap repeats. Finn eats the same handful of meals on rotation,
+   so the fastest possible log is a button, not a text field. */
+.quick-row {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 14px;
+}
+.quick-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 13px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.04);
+  color: var(--text-secondary);
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: background 0.13s, color 0.13s, border-color 0.13s, transform 0.13s;
+}
+.quick-chip::before { content: '+'; color: var(--text-tertiary); font-weight: 700; }
+.quick-chip:hover {
+  background: rgba(107,227,164,0.12);
+  border-color: rgba(107,227,164,0.4);
+  color: var(--text-primary);
+}
+.quick-chip:active { transform: scale(0.96); }
+.quick-chip.just-added {
+  background: rgba(107,227,164,0.22);
+  border-color: var(--success);
+  color: var(--success);
+}
+.quick-chip.just-added::before { content: '\2713'; color: var(--success); }
+.quick-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--text-tertiary);
+  margin-bottom: 10px;
+}
+
 .gm-input-wrap {
+  margin-bottom: 18px;
   display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
   margin-top: 14px; padding-top: 14px;
   border-top: 1px solid rgba(255,255,255,0.06);
@@ -236,15 +273,18 @@ body::after {
   <div class="section">
     <div class="section-title">Log</div>
     <div class="gm-card">
-      <ul class="goal-list" id="itemList"></ul>
+      <div class="quick-label">Usuals — one tap</div>
+      <div class="quick-row" id="quickRow"></div>
 
       <div class="gm-input-wrap">
         <input class="gm-input" id="itemInput" type="text"
-               placeholder="What did you eat or drink?" autocomplete="off">
+               placeholder="Something else?" autocomplete="off">
         <input class="gm-input" id="noteInput" type="text"
                placeholder="Note (optional)" autocomplete="off" style="max-width:160px;">
         <button class="gm-add" id="itemAdd" type="button">Add</button>
       </div>
+
+      <ul class="goal-list" id="itemList"></ul>
     </div>
   </div>
 
@@ -257,6 +297,7 @@ body::after {
   const STORE_KEY = 'food:logs';
 
   const listEl   = document.getElementById('itemList');
+  const quickEl  = document.getElementById('quickRow');
   const inputEl  = document.getElementById('itemInput');
   const noteEl   = document.getElementById('noteInput');
   const addEl    = document.getElementById('itemAdd');
@@ -282,6 +323,7 @@ body::after {
   }
 
   function render() {
+    renderQuick();
     const items = load().slice().sort(function (a, b) { return b.ts - a.ts; });
     listEl.innerHTML = '';
 
@@ -293,7 +335,7 @@ body::after {
     if (items.length === 0) {
       const li = document.createElement('li');
       li.className = 'empty-state';
-      li.textContent = 'Nothing logged yet — add what you ate or drank below.';
+      li.textContent = 'Nothing logged yet — tap a usual above, or type it in.';
       listEl.appendChild(li);
       return;
     }
@@ -342,20 +384,76 @@ body::after {
     });
   }
 
-  function add() {
-    const text = inputEl.value.trim();
+  function logItem(text, note) {
     if (!text) return;
     const list = load();
     list.push({
       id: 'f' + Date.now() + Math.floor(Math.random() * 1000),
       n: text,
-      note: noteEl.value.trim(),
+      note: note || '',
       ts: Date.now()
     });
     save(list);
+    render();
+  }
+
+  function add() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+    logItem(text, noteEl.value.trim());
     inputEl.value = '';
     noteEl.value = '';
-    render();
+  }
+
+  /* ===== Usuals =====
+     Learned from what he actually logs rather than a fixed menu:
+     the most-repeated names win, ties broken by whichever was eaten
+     most recently. Seeds only fill the gaps until there's history. */
+  const SEEDS = ['Venison + rice', 'Chicken + rice', 'Eggs', 'Protein shake', 'Coffee', 'Steak + veg'];
+  const QUICK_MAX = 8;
+
+  function usuals() {
+    const stats = new Map();
+    load().forEach(function (i) {
+      const name = (i.n || '').trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      const cur = stats.get(key) || { name: name, count: 0, last: 0 };
+      cur.count += 1;
+      if (i.ts > cur.last) { cur.last = i.ts; cur.name = name; }
+      stats.set(key, cur);
+    });
+    const ranked = Array.from(stats.values())
+      .sort(function (a, b) { return (b.count - a.count) || (b.last - a.last); })
+      .map(function (x) { return x.name; });
+
+    const seen = new Set(ranked.map(function (n) { return n.toLowerCase(); }));
+    SEEDS.forEach(function (s) {
+      if (ranked.length < QUICK_MAX && !seen.has(s.toLowerCase())) { ranked.push(s); seen.add(s.toLowerCase()); }
+    });
+    return ranked.slice(0, QUICK_MAX);
+  }
+
+  function renderQuick() {
+    quickEl.innerHTML = '';
+    usuals().forEach(function (name) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'quick-chip';
+      b.textContent = name;
+      b.addEventListener('click', function () {
+        logItem(name, '');
+        /* render() rebuilds this row, so flag the fresh button by name. */
+        const fresh = Array.prototype.find.call(quickEl.children, function (el) {
+          return el.textContent === name;
+        });
+        if (fresh) {
+          fresh.classList.add('just-added');
+          setTimeout(function () { fresh.classList.remove('just-added'); }, 1100);
+        }
+      });
+      quickEl.appendChild(b);
+    });
   }
   addEl.addEventListener('click', add);
   inputEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') add(); });
