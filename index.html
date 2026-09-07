@@ -270,6 +270,10 @@ body::after {
       <div><span class="strip-num" id="nicNum">0</span><span class="strip-unit">days</span></div>
       <div class="strip-label">Nicotine free</div>
     </button>
+    <button class="strip-item" id="stripIg" type="button" style="--accent:#A78BFA">
+      <div><span class="strip-num" id="igNum">0</span><span class="strip-unit">days</span></div>
+      <div class="strip-label">Off Instagram</div>
+    </button>
   </div>
 
   <div class="bento">
@@ -618,8 +622,10 @@ body::after {
 
   function loadS(){
     var d = readJSON(SKEY, {});
-    if (!d.start)  d.start  = { alcohol:START, nicotine:START };
-    if (!d.slips)  d.slips  = { alcohol:[], nicotine:[] };
+    if (!d.start)  d.start  = { alcohol:START, nicotine:START, instagram:START };
+    if (!d.slips)  d.slips  = { alcohol:[], nicotine:[], instagram:[] };
+    if (!d.start.instagram) d.start.instagram = START;   // backfill for rows saved before this streak existed
+    if (!d.slips.instagram) d.slips.instagram = [];
     if (!d.checks) d.checks = {};
     return d;
   }
@@ -725,6 +731,7 @@ body::after {
 
     document.getElementById('alcNum').textContent = streakDays(s, 'alcohol');
     document.getElementById('nicNum').textContent = streakDays(s, 'nicotine');
+    document.getElementById('igNum').textContent = streakDays(s, 'instagram');
   }
 
   function tick(id, isStreak){
@@ -749,6 +756,7 @@ body::after {
   }
   document.getElementById('stripAlc').addEventListener('click', function(){ slip('alcohol','a drink'); });
   document.getElementById('stripNic').addEventListener('click', function(){ slip('nicotine','nicotine'); });
+  document.getElementById('stripIg').addEventListener('click', function(){ slip('instagram','Instagram'); });
 
   render();
   setInterval(render, 60000); /* roll over between windows without a reload */
