@@ -286,13 +286,13 @@ body::after {
   </div>
 
   <div class="vitals">
-    <a class="vital-item" href="health.html">
+    <a class="vital-item" href="health.html" title="* = last synced day, not necessarily today">
       <div class="vital-num" id="vitSteps">—</div>
-      <div class="vital-label">Steps today</div>
+      <div class="vital-label">Steps</div>
     </a>
-    <a class="vital-item" href="health.html">
+    <a class="vital-item" href="health.html" title="* = last synced day, not necessarily today">
       <div class="vital-num" id="vitSleep">—</div>
-      <div class="vital-label">Sleep last night</div>
+      <div class="vital-label">Sleep</div>
     </a>
   </div>
 
@@ -856,14 +856,30 @@ body::after {
   var SUPABASE_KEY = window.DASH_SUPABASE_KEY || '';
   function dateKey(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 
+  // Most recent day (walking back from today) that actually has this
+  // field — the phone Shortcut only syncs once nightly, so "today" is
+  // empty most of the day; falling back beats showing "Not synced"
+  // for numbers that are really just a few hours stale.
+  function latestField(days, field) {
+    var keys = Object.keys(days).sort();
+    for (var i = keys.length - 1; i >= 0; i--) {
+      if (days[keys[i]][field] != null) return { key: keys[i], val: days[keys[i]][field] };
+    }
+    return null;
+  }
+
   function render(days) {
     days = days || {};
-    var today = days[dateKey(new Date())] || {};
+    var todayKey = dateKey(new Date());
     var stepsEl = document.getElementById('vitSteps'), sleepEl = document.getElementById('vitSleep');
     if (!stepsEl || !sleepEl) return;
-    if (today.steps != null) { stepsEl.textContent = Math.round(today.steps).toLocaleString(); stepsEl.classList.remove('stale'); }
+
+    var steps = latestField(days, 'steps');
+    if (steps) { stepsEl.textContent = Math.round(steps.val).toLocaleString() + (steps.key === todayKey ? '' : ' *'); stepsEl.classList.remove('stale'); }
     else { stepsEl.textContent = 'Not synced'; stepsEl.classList.add('stale'); }
-    if (today.sleepHours != null) { sleepEl.textContent = (Math.round(today.sleepHours * 10) / 10) + 'h'; sleepEl.classList.remove('stale'); }
+
+    var sleep = latestField(days, 'sleepHours');
+    if (sleep) { sleepEl.textContent = (Math.round(sleep.val * 10) / 10) + 'h' + (sleep.key === todayKey ? '' : ' *'); sleepEl.classList.remove('stale'); }
     else { sleepEl.textContent = 'Not synced'; sleepEl.classList.add('stale'); }
   }
 

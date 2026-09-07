@@ -555,9 +555,9 @@ main {
     <div class="section-title">Apple Health</div>
     <div class="ah-card">
       <div class="ah-stats">
-        <div class="ah-stat"><div class="ah-stat-val" id="ahSteps">—</div><div class="ah-stat-label">Steps today</div></div>
+        <div class="ah-stat"><div class="ah-stat-val" id="ahSteps">—</div><div class="ah-stat-label">Steps</div><div class="ah-stat-sub" id="ahStepsSub"></div></div>
         <div class="ah-stat"><div class="ah-stat-val" id="ahWeight">—</div><div class="ah-stat-label">Weight</div><div class="ah-stat-sub" id="ahWeightTrend"></div></div>
-        <div class="ah-stat"><div class="ah-stat-val" id="ahSleep">—</div><div class="ah-stat-label">Sleep last night</div></div>
+        <div class="ah-stat"><div class="ah-stat-val" id="ahSleep">—</div><div class="ah-stat-label">Sleep</div><div class="ah-stat-sub" id="ahSleepSub"></div></div>
       </div>
       <div class="ah-week" id="ahWeek"></div>
 
@@ -661,12 +661,32 @@ main {
       $('ahEmpty').style.display = keys.length ? 'none' : '';
 
       var todayKey = dateKey(new Date());
-      var today = days[todayKey] || {};
-      $('ahSteps').textContent = today.steps != null ? Math.round(today.steps).toLocaleString() : '—';
-      $('ahSleep').textContent = today.sleepHours != null ? (Math.round(today.sleepHours * 10) / 10) + 'h' : '—';
+      var sortedKeys = keys.slice().sort();
+
+      // Most recent day (by date, walking back from today) that actually
+      // has this field — the Shortcut only runs once nightly, so "today"
+      // is empty most of the day; falling back avoids showing a dead
+      // "—" all afternoon for numbers that are really just a few hours stale.
+      function latest(field) {
+        for (var i = sortedKeys.length - 1; i >= 0; i--) {
+          if (days[sortedKeys[i]][field] != null) return { key: sortedKeys[i], val: days[sortedKeys[i]][field] };
+        }
+        return null;
+      }
+      function freshnessLabel(key) {
+        if (key === todayKey) return '';
+        var d = new Date(key + 'T00:00:00');
+        var days2 = Math.round((new Date(todayKey + 'T00:00:00') - d) / 86400000);
+        return days2 === 1 ? 'yesterday' : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      }
+
+      var latestSteps = latest('steps'), latestSleep = latest('sleepHours');
+      $('ahSteps').textContent = latestSteps ? Math.round(latestSteps.val).toLocaleString() : '—';
+      $('ahStepsSub').textContent = latestSteps ? freshnessLabel(latestSteps.key) : '';
+      $('ahSleep').textContent = latestSleep ? (Math.round(latestSleep.val * 10) / 10) + 'h' : '—';
+      $('ahSleepSub').textContent = latestSleep ? freshnessLabel(latestSleep.key) : '';
 
       // Latest weight = most recent day (by date) that actually has a weight entry.
-      var sortedKeys = keys.slice().sort();
       var latestWeightKey = null, priorWeightKey = null;
       for (var i = sortedKeys.length - 1; i >= 0; i--) {
         if (days[sortedKeys[i]].weightKg != null) {
