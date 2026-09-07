@@ -187,6 +187,14 @@ body.topbar-modal-open {
     <span class="bottombar-tab-icon">💪</span>
     <span>Fitness</span>
   </a>
+  <a href="health.html" class="bottombar-tab" data-page="health">
+    <span class="bottombar-tab-icon">🫀</span>
+    <span>Health</span>
+  </a>
+  <a href="reminders.html" class="bottombar-tab" data-page="reminders">
+    <span class="bottombar-tab-icon">⏰</span>
+    <span>Remind</span>
+  </a>
 </nav>
 `;
 
@@ -208,6 +216,7 @@ body.topbar-modal-open {
     const p = (window.location.pathname || '').toLowerCase();
     if (p.endsWith('health.html')) return 'health';
     if (p.endsWith('gym.html')) return 'fitness';
+    if (p.endsWith('reminders.html')) return 'reminders';
     return 'main'; // index.html, /, or anything else falls back to main
   }
 
