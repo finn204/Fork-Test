@@ -201,7 +201,7 @@ body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; color: 
           'anthropic-dangerous-direct-browser-access': 'true',
         },
         body: JSON.stringify({
-          model: 'claude-opus-4-8',
+          model: 'claude-sonnet-5',
           max_tokens: 1024,
           system: SYS + JSON.stringify(dashboardData()),
           messages: [{ role: 'user', content: text }],
