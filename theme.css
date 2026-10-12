@@ -14,12 +14,12 @@
   --surface: #FFFFFF;                  /* cards */
   --fill: rgba(120, 120, 128, 0.12);   /* input wells, inset tiles */
   --fill-2: rgba(120, 120, 128, 0.08);
-  --separator: rgba(60, 60, 67, 0.14);
+  --separator: rgba(60, 60, 67, 0.20);
 
   --label: #1D1D1F;
-  --label-2: #3C3C43;
-  --label-3: #8E8E93;
-  --label-4: #C7C7CC;
+  --label-2: #2C2C2E;
+  --label-3: #636366;
+  --label-4: #AEAEB2;
 
   /* the names the pages already use */
   --text-primary: var(--label);

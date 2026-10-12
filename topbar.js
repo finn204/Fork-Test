@@ -68,8 +68,8 @@ body.has-topbar { padding-top: 0 !important; }
   gap: 2px;
   padding: 4px 0 2px;
   text-decoration: none;
-  color: #999999;
-  font-size: 10px; font-weight: 500;
+  color: #7C7C80;
+  font-size: 11px; font-weight: 600;
   letter-spacing: 0.01em;
   -webkit-tap-highlight-color: transparent;
   transition: color 0.15s;

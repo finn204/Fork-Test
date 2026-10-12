@@ -69,7 +69,7 @@ body::after {
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent; color: transparent;
 }
-.dash-sub { margin: 0 0 18px; font-size: 12px; color: var(--text-tertiary); }
+.dash-sub { margin: 0 0 18px; font-size: 14px; color: var(--text-tertiary); }
 @media (max-width: 480px) { .dash-title { font-size: 22px; } }
 
 .section { margin-top: 8px; }
@@ -96,10 +96,10 @@ body::after {
   letter-spacing: -0.05em; color: var(--text-primary); line-height: 0.95;
 }
 .hero-label {
-  font-size: 11px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase;
+  font-size: 16px; font-weight: 500; letter-spacing: 0; text-transform: none;
   color: var(--text-tertiary); margin-left: 6px;
 }
-.hero-trip { font-size: 13px; color: var(--text-secondary); text-align: right; line-height: 1.5; }
+.hero-trip { font-size: 15px; color: var(--text-secondary); text-align: right; line-height: 1.5; }
 .hero-trip b { color: var(--text-primary); font-weight: 600; }
 
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-top: 18px; }
@@ -109,8 +109,8 @@ body::after {
   letter-spacing: -0.03em; color: var(--text-primary); line-height: 1;
 }
 .stat-label {
-  margin-top: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em;
-  text-transform: uppercase; color: var(--text-tertiary);
+  margin-top: 6px; font-size: 13px; font-weight: 600; letter-spacing: 0;
+  text-transform: none; color: var(--text-tertiary);
 }
 
 /* Rows shared by money, bookings and to-dos */
@@ -125,21 +125,21 @@ body::after {
 .row:last-child { border-bottom: 0; }
 .row-main { flex: 1; min-width: 0; }
 .row-title { font-size: 16px; color: var(--text-primary); line-height: 1.35; overflow-wrap: anywhere; }
-.row-meta { margin-top: 3px; font-size: 13px; color: var(--text-tertiary); line-height: 1.45; overflow-wrap: anywhere; }
-.row-note { margin-top: 4px; font-size: 13px; color: var(--text-secondary); line-height: 1.45; overflow-wrap: anywhere; }
-.mono { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); overflow-wrap: anywhere; }
+.row-meta { margin-top: 3px; font-size: 14.5px; color: var(--text-tertiary); line-height: 1.45; overflow-wrap: anywhere; }
+.row-note { margin-top: 4px; font-size: 14.5px; color: var(--text-secondary); line-height: 1.45; overflow-wrap: anywhere; }
+.mono { font-family: var(--font-mono); font-size: 13px; color: var(--text-tertiary); overflow-wrap: anywhere; }
 .amount {
   font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;
   color: var(--text-primary); white-space: nowrap; text-align: right;
 }
 .amount.neg { color: var(--danger); }
-.amount-sub { display: block; font-size: 10.5px; font-weight: 600; color: var(--text-tertiary); letter-spacing: 0.04em; margin-top: 3px; }
-.empty-state { text-align: center; font-size: 12px; font-style: italic; color: var(--text-tertiary); padding: 14px 0; }
+.amount-sub { display: block; font-size: 12.5px; font-weight: 500; color: var(--text-tertiary); letter-spacing: 0; margin-top: 3px; }
+.empty-state { text-align: center; font-size: 14px; font-style: italic; color: var(--text-tertiary); padding: 14px 0; }
 
 /* Status pill — tap to move a booking along */
 .pill {
   flex-shrink: 0; min-width: 76px; padding: 6px 11px; border-radius: 999px;
-  font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0;
+  font-family: inherit; font-size: 13px; font-weight: 600; letter-spacing: 0;
   border: 0; background: var(--fill);
   color: var(--text-secondary); cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
@@ -163,14 +163,14 @@ body::after {
 .row.done { opacity: 0.45; }
 .row.done .row-title { text-decoration: line-through; text-decoration-color: #8E8E93; }
 .due {
-  flex-shrink: 0; font-size: 12px; font-weight: 600; letter-spacing: 0;
+  flex-shrink: 0; font-size: 13px; font-weight: 600; letter-spacing: 0;
   color: var(--text-tertiary); padding: 3px 9px; border-radius: 999px;
   background: var(--fill-2);
 }
 .due.now { color: #C93400; background: rgba(255,149,0,0.14); }
 .del {
   border: 0; background: transparent; color: var(--text-tertiary);
-  font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; opacity: 0.5;
+  font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; opacity: 0.7;
 }
 .del:hover { color: var(--danger); opacity: 1; }
 
@@ -194,7 +194,7 @@ body::after {
 .gm-ghost {
   margin-top: 8px; padding: 9px 14px; border: 1px solid rgba(60,60,67,0.16); border-radius: 12px;
   background: rgba(120,120,128,0.10); color: var(--text-secondary);
-  font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
 }
 
 /* Route */
@@ -211,13 +211,13 @@ body::after {
 .stop-flag { font-size: 22px; line-height: 1; flex-shrink: 0; }
 .stop-name { flex: 1; min-width: 0; }
 .stop-tag {
-  flex-shrink: 0; font-size: 12px; font-weight: 600; letter-spacing: 0;
+  flex-shrink: 0; font-size: 13px; font-weight: 600; letter-spacing: 0;
   padding: 3px 9px; border-radius: 999px; color: var(--tint-ink);
   border: 0; background: rgba(var(--tint-rgb), 0.12);
 }
 .stop-chev { color: var(--text-tertiary); font-size: 12px; transition: transform 0.2s; }
 .stop[open] .stop-chev { transform: rotate(90deg); }
-.stop-body { padding: 0 14px 14px; font-size: 13px; line-height: 1.55; color: var(--text-secondary); }
+.stop-body { padding: 0 14px 14px; font-size: 15px; line-height: 1.55; color: var(--text-secondary); }
 .stop-body h4 {
   margin: 14px 0 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
   text-transform: uppercase; color: var(--text-tertiary);
@@ -225,10 +225,10 @@ body::after {
 .stop-body ul { margin: 0; padding-left: 18px; }
 .stop-body li { margin-bottom: 4px; }
 .facts { display: grid; grid-template-columns: 96px 1fr; gap: 6px 12px; margin-top: 12px; }
-.facts dt { font-size: 11px; font-weight: 600; color: var(--text-tertiary); }
+.facts dt { font-size: 13px; font-weight: 600; color: var(--text-tertiary); }
 .facts dd { margin: 0; overflow-wrap: anywhere; }
 
-.foot { margin: 18px 0 0; font-size: 11.5px; color: var(--text-tertiary); line-height: 1.5; text-align: center; }
+.foot { margin: 18px 0 0; font-size: 13px; color: var(--text-tertiary); line-height: 1.5; text-align: center; }
 
 @media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
