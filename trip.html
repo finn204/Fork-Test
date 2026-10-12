@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-tint="sky">
 <head>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <script src="/api/config"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#050506">
+<meta name="theme-color" content="#F2F2F7">
 <title>Trip · Dashboard</title>
 
 <!-- Trip page: accounts, bookings, to-dos and the route, mirrored from
@@ -22,19 +22,19 @@
 
 <style>
 :root {
-  --text-primary: #FAFAFA;
-  --text-secondary: #B8B6B0;
-  --text-tertiary: #76746E;
-  --success: #6BE3A4;
-  --warning: #F2C063;
-  --danger:  #FF6B6B;
+  --text-primary: #1D1D1F;
+  --text-secondary: #3C3C43;
+  --text-tertiary: #8E8E93;
+  --success: #34C759;
+  --warning: #FF9500;
+  --danger:  #FF3B30;
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;
-  background: #050506;
+  background: #F2F2F7;
   color: var(--text-secondary);
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
@@ -48,14 +48,14 @@ body {
 body::before {
   content: ''; position: fixed; inset: 0;
   background:
-    radial-gradient(circle at 82% 14%, rgba(224, 118, 88, 0.16), transparent 45%),
-    radial-gradient(circle at 18% 90%, rgba(180, 180, 200, 0.06), transparent 50%);
+    radial-gradient(circle at 82% 14%, rgba(255,149,0,0.2), transparent 45%),
+    radial-gradient(circle at 18% 90%, rgba(255,255,255,0.06), transparent 50%);
   filter: blur(40px); pointer-events: none; z-index: -2;
   animation: drift 36s ease-in-out infinite alternate;
 }
 body::after {
   content: ''; position: fixed; inset: 0;
-  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(120,120,128,0.06) 1px, transparent 1px);
   background-size: 3px 3px; pointer-events: none; z-index: -1;
 }
 @keyframes drift { 0% { transform: translate3d(0,0,0); } 100% { transform: translate3d(-22px, 14px, 0); } }
@@ -65,7 +65,7 @@ body::after {
 
 .dash-title {
   margin: 0 0 4px; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
-  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  background: linear-gradient(180deg, #1D1D1F 0%, #3C3C43 120%);
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent; color: transparent;
 }
@@ -78,13 +78,13 @@ body::after {
   color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
 }
 .section-title::before { content: ''; width: 18px; height: 1px; background: var(--text-tertiary); opacity: 0.6; }
-.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent); }
+.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(120,120,128,0.16), transparent); }
 
 .gm-card {
-  position: relative; background: rgba(255, 255, 255, 0.04); border-radius: 16px;
+  position: relative; background: #FFFFFF; border-radius: 16px;
   padding: 20px; margin-bottom: 14px;
   backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45); overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.081); overflow: hidden;
 }
 .gm-eyebrow {
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
@@ -103,7 +103,7 @@ body::after {
 .hero-trip b { color: var(--text-primary); font-weight: 600; }
 
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-top: 18px; }
-.stat { background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 14px; }
+.stat { background: rgba(120,120,128,0.10); border: 1px solid rgba(60,60,67,0.096); border-radius: 12px; padding: 14px; }
 .stat-num {
   font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em; color: var(--text-primary); line-height: 1;
@@ -115,16 +115,18 @@ body::after {
 
 /* Rows shared by money, bookings and to-dos */
 .list { list-style: none; margin: 0; padding: 0; }
+/* Apple-style list rows: no boxes, just hairlines between them */
 .row {
   display: flex; align-items: flex-start; gap: 12px;
-  padding: 12px 14px; margin-bottom: 6px;
-  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 12px;
+  padding: 13px 2px; margin: 0;
+  background: transparent; border: 0; border-radius: 0;
+  border-bottom: 0.5px solid var(--separator);
 }
+.row:last-child { border-bottom: 0; }
 .row-main { flex: 1; min-width: 0; }
-.row-title { font-size: 14px; color: var(--text-primary); line-height: 1.35; overflow-wrap: anywhere; }
-.row-meta { margin-top: 3px; font-size: 12px; color: var(--text-tertiary); line-height: 1.45; overflow-wrap: anywhere; }
-.row-note { margin-top: 4px; font-size: 12px; color: var(--text-secondary); line-height: 1.45; overflow-wrap: anywhere; }
+.row-title { font-size: 16px; color: var(--text-primary); line-height: 1.35; overflow-wrap: anywhere; }
+.row-meta { margin-top: 3px; font-size: 13px; color: var(--text-tertiary); line-height: 1.45; overflow-wrap: anywhere; }
+.row-note { margin-top: 4px; font-size: 13px; color: var(--text-secondary); line-height: 1.45; overflow-wrap: anywhere; }
 .mono { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); overflow-wrap: anywhere; }
 .amount {
   font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;
@@ -136,13 +138,13 @@ body::after {
 
 /* Status pill — tap to move a booking along */
 .pill {
-  flex-shrink: 0; min-width: 74px; padding: 6px 10px; border-radius: 999px;
-  font-family: inherit; font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-  border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04);
-  color: var(--text-tertiary); cursor: pointer; -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0; min-width: 76px; padding: 6px 11px; border-radius: 999px;
+  font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0;
+  border: 0; background: var(--fill);
+  color: var(--text-secondary); cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.pill.booked { color: var(--success); border-color: rgba(107,227,164,0.35); background: rgba(107,227,164,0.08); }
-.pill.topay  { color: var(--warning); border-color: rgba(242,192,99,0.35);  background: rgba(242,192,99,0.08); }
+.pill.booked { color: #248A3D; background: rgba(52,199,89,0.16); }
+.pill.topay  { color: #C93400; background: rgba(255,149,0,0.16); }
 .pill:focus-visible, .gm-check:focus-visible, .gm-add:focus-visible, .gm-ghost:focus-visible,
 .del:focus-visible, summary:focus-visible { outline: 2px solid var(--success); outline-offset: 2px; }
 
@@ -150,22 +152,22 @@ body::after {
 .gm-check {
   appearance: none; -webkit-appearance: none;
   width: 22px; height: 22px; flex-shrink: 0; margin: 0;
-  border: 1.5px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.28); border-radius: 7px;
+  border: 1.5px solid rgba(60,60,67,0.288); background: rgba(120,120,128,0.12); border-radius: 7px;
   position: relative; cursor: pointer; transition: background 0.2s, border-color 0.2s, box-shadow 0.25s;
 }
-.gm-check:checked { background: var(--success); border-color: var(--success); box-shadow: 0 0 12px rgba(107,227,164,0.40); }
+.gm-check:checked { background: var(--success); border-color: var(--success); box-shadow: 0 0 12px rgba(52,199,89,0.22); }
 .gm-check:checked::after {
   content: ''; position: absolute; left: 6px; top: 2px; width: 6px; height: 11px;
-  border: solid #0A0A0B; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
+  border: solid #E5E5EA; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
 }
 .row.done { opacity: 0.45; }
-.row.done .row-title { text-decoration: line-through; text-decoration-color: rgba(255,255,255,0.4); }
+.row.done .row-title { text-decoration: line-through; text-decoration-color: #8E8E93; }
 .due {
-  flex-shrink: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--text-tertiary); padding: 4px 8px; border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0; font-size: 12px; font-weight: 600; letter-spacing: 0;
+  color: var(--text-tertiary); padding: 3px 9px; border-radius: 999px;
+  background: var(--fill-2);
 }
-.due.now { color: var(--warning); border-color: rgba(242,192,99,0.35); }
+.due.now { color: #C93400; background: rgba(255,149,0,0.14); }
 .del {
   border: 0; background: transparent; color: var(--text-tertiary);
   font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; opacity: 0.5;
@@ -174,43 +176,44 @@ body::after {
 
 .input-wrap {
   display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-  margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.06);
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(60,60,67,0.096);
 }
 .gm-input {
   flex: 1; min-width: 0; padding: 11px 14px;
-  border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: rgba(0,0,0,0.28);
+  border: 1px solid rgba(60,60,67,0.128); border-radius: 12px; background: rgba(120,120,128,0.12);
   color: var(--text-primary); font-family: inherit; font-size: 16px; outline: none;
 }
 .gm-input.short { flex: 0 0 92px; }
 .gm-input::placeholder { color: var(--text-tertiary); }
-.gm-input:focus { border-color: rgba(255,255,255,0.28); }
+.gm-input:focus { border-color: rgba(60,60,67,0.3); }
 .gm-add {
   padding: 11px 20px; border: 0; border-radius: 12px;
-  background: linear-gradient(180deg, #FFFFFF 0%, #E8E5DD 100%);
-  color: #0A0A0B; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  background: var(--tint, #007AFF);
+  color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
 }
 .gm-ghost {
-  margin-top: 8px; padding: 9px 14px; border: 1px solid rgba(255,255,255,0.10); border-radius: 12px;
-  background: rgba(255,255,255,0.04); color: var(--text-secondary);
+  margin-top: 8px; padding: 9px 14px; border: 1px solid rgba(60,60,67,0.16); border-radius: 12px;
+  background: rgba(120,120,128,0.10); color: var(--text-secondary);
   font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
 }
 
 /* Route */
 .stop {
-  border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.035);
-  border-radius: 12px; margin-bottom: 6px;
+  border: 0; background: transparent; border-radius: 0; margin: 0;
+  border-bottom: 0.5px solid var(--separator);
 }
+.stop:last-child { border-bottom: 0; }
 .stop summary {
-  list-style: none; cursor: pointer; padding: 12px 14px;
+  list-style: none; cursor: pointer; padding: 13px 2px;
   display: flex; align-items: center; gap: 12px; -webkit-tap-highlight-color: transparent;
 }
 .stop summary::-webkit-details-marker { display: none; }
 .stop-flag { font-size: 22px; line-height: 1; flex-shrink: 0; }
 .stop-name { flex: 1; min-width: 0; }
 .stop-tag {
-  flex-shrink: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-  padding: 4px 8px; border-radius: 999px; color: var(--success);
-  border: 1px solid rgba(107,227,164,0.35); background: rgba(107,227,164,0.08);
+  flex-shrink: 0; font-size: 12px; font-weight: 600; letter-spacing: 0;
+  padding: 3px 9px; border-radius: 999px; color: var(--tint-ink);
+  border: 0; background: rgba(var(--tint-rgb), 0.12);
 }
 .stop-chev { color: var(--text-tertiary); font-size: 12px; transition: transform 0.2s; }
 .stop[open] .stop-chev { transform: rotate(90deg); }
@@ -236,6 +239,7 @@ body::after {
   .facts dd { margin-bottom: 8px; }
 }
 </style>
+<link rel="stylesheet" href="theme.css">
 </head>
 <body>
 <div class="page">

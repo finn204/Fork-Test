@@ -1,0 +1,192 @@
+/* =============================================================
+   theme.css — the dashboard's bright, Apple-style look.
+
+   Every page links this AFTER its own <style>, so anything here
+   wins over the page's defaults. Each page picks an accent with
+   <html data-tint="...">; buttons, ticks, the active tab and the
+   soft wash at the top of the page all follow it.
+   ============================================================= */
+
+:root {
+  color-scheme: light;
+
+  --bg: #F2F2F7;                       /* grouped background */
+  --surface: #FFFFFF;                  /* cards */
+  --fill: rgba(120, 120, 128, 0.12);   /* input wells, inset tiles */
+  --fill-2: rgba(120, 120, 128, 0.08);
+  --separator: rgba(60, 60, 67, 0.14);
+
+  --label: #1D1D1F;
+  --label-2: #3C3C43;
+  --label-3: #8E8E93;
+  --label-4: #C7C7CC;
+
+  /* the names the pages already use */
+  --text-primary: var(--label);
+  --text-secondary: var(--label-2);
+  --text-tertiary: var(--label-3);
+  --success: #34C759;
+  --warning: #FF9500;
+  --danger: #FF3B30;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
+  --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.05), 0 14px 34px rgba(0, 0, 0, 0.09);
+
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Inter", "Segoe UI", Roboto, Arial, sans-serif;
+  --font-rounded: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  /* The old dark look used a code font for dates and counters; the rounded face reads friendlier. */
+  --font-mono: var(--font-rounded);
+
+  --tint: #007AFF; --tint-rgb: 0, 122, 255; --tint-ink: #0A63D6;
+}
+
+/* One accent per page: same family, a little different on each. */
+html[data-tint="blue"]   { --tint: #007AFF; --tint-rgb: 0, 122, 255;  --tint-ink: #0A63D6; }
+html[data-tint="sky"]    { --tint: #0A84FF; --tint-rgb: 10, 132, 255; --tint-ink: #0058D0; }
+html[data-tint="indigo"] { --tint: #5856D6; --tint-rgb: 88, 86, 214;  --tint-ink: #3634A3; }
+html[data-tint="purple"] { --tint: #AF52DE; --tint-rgb: 175, 82, 222; --tint-ink: #8944AB; }
+html[data-tint="pink"]   { --tint: #FF2D55; --tint-rgb: 255, 45, 85;  --tint-ink: #D30F45; }
+html[data-tint="red"]    { --tint: #FF3B30; --tint-rgb: 255, 59, 48;  --tint-ink: #D70015; }
+html[data-tint="orange"] { --tint: #FF9500; --tint-rgb: 255, 149, 0;  --tint-ink: #C93400; }
+html[data-tint="brown"]  { --tint: #A2845E; --tint-rgb: 162, 132, 94; --tint-ink: #7F6545; }
+html[data-tint="green"]  { --tint: #34C759; --tint-rgb: 52, 199, 89;  --tint-ink: #248A3D; }
+html[data-tint="mint"]   { --tint: #00C7BE; --tint-rgb: 0, 199, 190;  --tint-ink: #0C817B; }
+html[data-tint="teal"]   { --tint: #30B0C7; --tint-rgb: 48, 176, 199; --tint-ink: #0071A4; }
+html[data-tint="cyan"]   { --tint: #32ADE6; --tint-rgb: 50, 173, 230; --tint-ink: #0071A4; }
+
+/* ---------- page ---------- */
+html { background: var(--bg); }
+body {
+  background: transparent;
+  color: var(--label-2);
+  font-family: var(--font);
+  letter-spacing: -0.003em;
+  font-variant-numeric: tabular-nums;
+}
+/* A soft wash of the page's colour behind the title; scrolls away with the page. */
+body::before {
+  content: '';
+  position: absolute; inset: 0 0 auto 0; height: 440px;
+  background:
+    radial-gradient(110% 80% at 0% 0%, rgba(var(--tint-rgb), 0.20) 0%, rgba(var(--tint-rgb), 0) 62%),
+    radial-gradient(80% 70% at 100% 0%, rgba(var(--tint-rgb), 0.10) 0%, rgba(var(--tint-rgb), 0) 60%),
+    linear-gradient(180deg, rgba(var(--tint-rgb), 0.07) 0%, rgba(var(--tint-rgb), 0) 100%);
+  filter: none; animation: none; transform: none;
+  pointer-events: none; z-index: -1;
+}
+body::after { display: none; }
+::selection { background: rgba(var(--tint-rgb), 0.22); }
+
+/* ---------- type ---------- */
+.dash-title {
+  font-size: 34px; line-height: 1.12; font-weight: 700;
+  letter-spacing: -0.022em;
+  color: var(--label);
+  background: none;
+  -webkit-background-clip: border-box; background-clip: border-box;
+  -webkit-text-fill-color: currentColor;
+}
+@media (max-width: 480px) { .dash-title { font-size: 32px; } }
+
+.section-title {
+  font-family: var(--font);
+  font-size: 20px; font-weight: 700; letter-spacing: -0.015em;
+  text-transform: none; color: var(--label);
+  gap: 0; margin: 24px 2px 10px;
+}
+.section-title::before, .section-title::after { display: none; }
+
+.gm-eyebrow {
+  font-size: 13px; font-weight: 600; letter-spacing: 0;
+  text-transform: none; color: var(--tint-ink);
+}
+
+/* Big numbers use the rounded face, like Fitness and Health. */
+.gm-progress-num, .stat-num, .hero-num, .tile-title, .strip-num, .vital-num {
+  font-family: var(--font-rounded);
+}
+.gm-progress-num, .stat-num, .hero-num { color: var(--label); letter-spacing: -0.03em; }
+.gm-progress-total, .gm-progress-label, .stat-label, .hero-label {
+  color: var(--label-3); letter-spacing: 0; text-transform: none; font-size: 13px; font-weight: 500;
+}
+
+/* ---------- cards ---------- */
+.gm-card {
+  background: var(--surface);
+  border: 0; border-radius: 22px;
+  box-shadow: var(--shadow-card);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+.stat { background: var(--bg); border: 0; border-radius: 16px; }
+.gm-streak {
+  background: rgba(var(--tint-rgb), 0.12); border: 0;
+  color: var(--tint-ink); letter-spacing: 0; text-transform: none;
+  font-size: 13px; font-weight: 600;
+}
+
+/* ---------- lists: rows split by hairlines, like Reminders ---------- */
+.gm-row {
+  background: transparent; border: 0; border-radius: 0;
+  margin: 0; padding: 13px 2px;
+  border-bottom: 0.5px solid var(--separator);
+}
+.gm-row:last-child { border-bottom: 0; }
+.gm-row:hover { background: transparent; }
+.gm-row.gm-row-done { background: transparent; opacity: 0.5; }
+.gm-text { color: var(--label); font-size: 16px; }
+.gm-text[contenteditable="true"] { outline: none; background: transparent; }
+.gm-text[contenteditable="true"]:focus { background: var(--fill); }
+.goal-delete { color: var(--label-4); }
+.goal-delete:hover { color: var(--danger); }
+.empty-state { color: var(--label-3); font-style: normal; }
+
+/* Round ticks in the page colour */
+.gm-check {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 1.5px solid var(--label-4); background: #FFFFFF; box-shadow: none;
+}
+.gm-check:checked { background: var(--tint); border-color: var(--tint); box-shadow: none; }
+.gm-check:checked::after { left: 7.5px; top: 3.5px; border-color: #FFFFFF; }
+
+/* ---------- inputs & buttons ---------- */
+.gm-input, .set-input {
+  background: var(--fill); border: 1px solid transparent; border-radius: 12px;
+  color: var(--label);
+}
+.gm-input::placeholder, .set-input::placeholder { color: var(--label-3); }
+.gm-input:focus, .set-input:focus {
+  background: #FFFFFF; border-color: var(--tint);
+  box-shadow: 0 0 0 3px rgba(var(--tint-rgb), 0.18);
+}
+.gm-add, .set-save {
+  background: var(--tint); color: #FFFFFF;
+  border: 0; border-radius: 999px; font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 6px 16px rgba(var(--tint-rgb), 0.28);
+}
+.gm-add:hover, .set-save:hover { filter: brightness(1.06); }
+.gm-ghost {
+  background: rgba(var(--tint-rgb), 0.12); color: var(--tint-ink);
+  border: 0; border-radius: 999px;
+}
+.gm-ghost:hover { background: rgba(var(--tint-rgb), 0.18); }
+:focus-visible { outline-color: var(--tint); }
+
+/* Segmented controls: white thumb on a grey track */
+.seg {
+  background: rgba(118, 118, 128, 0.12); border: 0; border-radius: 10px;
+  padding: 2px; gap: 2px;
+}
+.seg button { border-radius: 8px; color: var(--label); }
+.seg button.on {
+  background: #FFFFFF; color: var(--label);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+/* ---------- sheets ---------- */
+.modal-bg { background: rgba(0, 0, 0, 0.25); }
+.modal {
+  background: #FFFFFF; border: 0; border-radius: 24px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18);
+}
+.modal-title { color: var(--label); }
+.modal-close { color: var(--label-3); }

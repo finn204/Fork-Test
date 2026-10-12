@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-tint="blue">
 <head>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <script src="/api/config"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#050506">
+<meta name="theme-color" content="#F2F2F7">
 <title>Dashboard</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -20,16 +20,16 @@
 <style>
 /* ===== Shared design tokens (same as the rest of the dashboard) ===== */
 :root {
-  --text-primary: #FAFAFA;
-  --text-secondary: #B8B6B0;
-  --text-tertiary: #76746E;
+  --text-primary: #1D1D1F;
+  --text-secondary: #3C3C43;
+  --text-tertiary: #8E8E93;
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;
-  background: #050506;
+  background: #F2F2F7;
   color: var(--text-secondary);
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
@@ -43,14 +43,14 @@ body {
 body::before {
   content: ''; position: fixed; inset: 0;
   background:
-    radial-gradient(circle at 82% 14%, rgba(224,118,88,0.16), transparent 45%),
-    radial-gradient(circle at 18% 90%, rgba(180,180,200,0.06), transparent 50%);
+    radial-gradient(circle at 82% 14%, rgba(255,149,0,0.2), transparent 45%),
+    radial-gradient(circle at 18% 90%, rgba(255,255,255,0.06), transparent 50%);
   filter: blur(40px); pointer-events: none; z-index: -2;
   animation: drift 36s ease-in-out infinite alternate;
 }
 body::after {
   content: ''; position: fixed; inset: 0;
-  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(120,120,128,0.06) 1px, transparent 1px);
   background-size: 3px 3px; pointer-events: none; z-index: -1;
 }
 @keyframes drift { 0%{transform:translate3d(0,0,0)} 100%{transform:translate3d(-22px,14px,0)} }
@@ -58,7 +58,7 @@ body::after {
 .page { max-width: 1100px; margin: 0 auto; }
 .dash-title {
   margin: 0 0 18px; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
-  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  background: linear-gradient(180deg, #1D1D1F 0%, #3C3C43 120%);
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent; color: transparent;
 }
@@ -73,62 +73,58 @@ body::after {
   gap: 14px;
 }
 .tile {
-  --accent: #6BE3A4;                 /* each tile overrides this */
+  --accent: #34C759;                 /* each tile overrides this */
   position: relative; overflow: hidden;
   display: flex; flex-direction: column;
-  padding: 20px;
-  border-radius: 18px;
+  padding: 18px;
+  border-radius: 22px;
   text-decoration: none;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.06);
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  background: #FFFFFF;
+  border: 0;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
-/* The "its own style" bit — a faint accent glow per tile. */
+/* Each tile gets a soft wash of its own colour in the corner. */
 .tile::before {
   content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(circle at 78% 18%,
-              color-mix(in srgb, var(--accent) 22%, transparent), transparent 55%);
-  opacity: 0.7; transition: opacity 0.18s ease;
+  background: radial-gradient(120% 90% at 100% 0%,
+              color-mix(in srgb, var(--accent) 16%, transparent), transparent 60%);
+  transition: opacity 0.18s ease;
 }
-.tile:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  box-shadow: 0 16px 48px rgba(0,0,0,0.55);
-}
-.tile:hover::before { opacity: 1; }
+.tile:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+.tile:active { transform: scale(0.98); }
 
 /* Tile sizes */
 .tile.big  { grid-column: span 2; grid-row: span 2; }
 .tile.wide { grid-column: span 2; }
 
 /* Tile contents */
-.tile-top { display: flex; align-items: flex-start; justify-content: space-between; }
-.tile-num {
-  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
-  letter-spacing: 0.08em; color: var(--text-tertiary);
-}
+.tile-top { display: flex; align-items: flex-start; justify-content: space-between; position: relative; }
+.tile-num { display: none; }
+/* The emoji sits in a little rounded badge of the tile's colour, like an app icon. */
 .tile-emoji {
-  font-size: 26px; line-height: 1;
-  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 60%, transparent));
+  width: 40px; height: 40px; border-radius: 12px;
+  display: grid; place-items: center;
+  font-size: 22px; line-height: 1;
+  background: color-mix(in srgb, var(--accent) 16%, #FFFFFF);
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 .tile-spacer { flex: 1; }
 .tile-title {
-  font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
-  color: var(--text-primary); margin: 0 0 4px;
+  position: relative;
+  font-size: 21px; font-weight: 700; letter-spacing: -0.02em;
+  color: var(--text-primary); margin: 0 0 3px;
 }
-.tile.big .tile-title { font-size: 28px; }
-.tile-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tile.big .tile-title { font-size: 26px; }
+.tile-foot { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .tile-sub {
   font-size: 13px; color: var(--text-tertiary);
 }
 .tile-arrow {
-  font-size: 18px; color: var(--accent);
+  font-size: 22px; font-weight: 600; line-height: 1; color: var(--accent);
   transition: transform 0.18s ease; flex-shrink: 0;
 }
-.tile:hover .tile-arrow { transform: translateX(4px); }
+.tile:hover .tile-arrow { transform: translateX(3px); }
 
 /* ===== Responsive: collapse the bento on small screens ===== */
 @media (max-width: 720px) {
@@ -141,30 +137,28 @@ body::after {
   /* Stay 2-up instead of collapsing to a single column — halves the
      scroll height on phones. Big/wide tiles go full-width at one
      compact row instead of the desktop 2-row "big" treatment. */
-  .bento { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 84px; gap: 10px; }
+  .bento { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 104px; gap: 12px; }
   /* Every tile the same size, 2 per row throughout — no more full-width
      "big"/"wide" tiles breaking the rhythm into 2/1/2/1 rows. */
   .tile.big, .tile.wide { grid-column: span 1; grid-row: span 1; }
-  .tile { padding: 12px 14px; }
-  .tile-emoji { font-size: 18px; }
-  .tile-num { font-size: 10px; }
-  .tile-title, .tile.big .tile-title { font-size: 15px; margin-bottom: 0; }
-  .tile-sub { display: none; }
-  .tile-arrow { font-size: 14px; }
+  .tile { padding: 13px 14px; border-radius: 20px; }
+  .tile-emoji { width: 34px; height: 34px; border-radius: 10px; font-size: 19px; }
+  .tile-title, .tile.big .tile-title { font-size: 16px; margin-bottom: 0; }
+  .tile-foot { display: none; }
 }
 
 /* ===== Header row + gear ===== */
 .hub-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .hub-head .dash-title { margin: 0; }
 .gear-btn {
-  width: 42px; height: 42px; flex-shrink: 0;
+  width: 38px; height: 38px; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 12px; border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.04); color: var(--text-secondary);
+  border-radius: 50%; border: 0;
+  background: rgba(var(--tint-rgb), 0.12); color: var(--tint);
   cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.1s;
   -webkit-tap-highlight-color: transparent;
 }
-.gear-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+.gear-btn:hover { background: rgba(var(--tint-rgb), 0.18); }
 .gear-btn:active { transform: scale(0.94) rotate(35deg); }
 .gear-btn svg { width: 22px; height: 22px; }
 
@@ -172,13 +166,13 @@ body::after {
 .modal-bg {
   position: fixed; inset: 0; z-index: 120; display: none;
   align-items: center; justify-content: center; padding: 20px;
-  background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  background: rgba(0,0,0,0.28); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
 }
 .modal-bg.show { display: flex; }
 .modal {
   width: 100%; max-width: 460px; max-height: 88vh; overflow-y: auto;
-  background: #0e0e10; border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 18px; padding: 22px; box-shadow: 0 24px 70px rgba(0,0,0,0.6);
+  background: #FFFFFF; border: 1px solid rgba(60,60,67,0.128);
+  border-radius: 18px; padding: 22px; box-shadow: 0 24px 70px rgba(0,0,0,0.108);
 }
 .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
 .modal-title { font-size: 18px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
@@ -189,64 +183,67 @@ body::after {
 .field-row { display: flex; gap: 8px; align-items: center; }
 .set-input {
   flex: 1; min-width: 0; padding: 11px 13px;
-  border: 1px solid rgba(255,255,255,0.08); border-radius: 11px;
-  background: rgba(0,0,0,0.3); color: var(--text-primary);
+  border: 1px solid rgba(60,60,67,0.128); border-radius: 11px;
+  background: rgba(120,120,128,0.12); color: var(--text-primary);
   font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.2s;
 }
-.set-input:focus { border-color: rgba(255,255,255,0.28); }
-.seg { display: inline-flex; border: 1px solid rgba(255,255,255,0.10); border-radius: 11px; overflow: hidden; flex-shrink: 0; }
+.set-input:focus { border-color: rgba(60,60,67,0.3); }
+.seg { display: inline-flex; border: 1px solid rgba(60,60,67,0.16); border-radius: 11px; overflow: hidden; flex-shrink: 0; }
 .seg button { border: 0; background: transparent; color: var(--text-tertiary); font-family: inherit; font-size: 13px; font-weight: 600; padding: 11px 14px; cursor: pointer; transition: background 0.15s, color 0.15s; }
-.seg button.on { background: rgba(255,255,255,0.12); color: var(--text-primary); }
+.seg button.on { background: rgba(120,120,128,0.16); color: var(--text-primary); }
 .set-save {
   width: 100%; margin-top: 6px; padding: 13px; border: 0; border-radius: 12px;
-  background: linear-gradient(180deg,#FFFFFF,#E8E5DD); color: #0A0A0B;
+  background: var(--tint, #007AFF); color: #FFFFFF;
   font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 8px 22px rgba(0,0,0,0.25);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.315), 0 8px 22px rgba(0,0,0,0.045);
   transition: filter 0.15s, transform 0.1s;
 }
 .set-save:hover { filter: brightness(1.05); }
 .set-save:active { transform: translateY(1px); }
 .set-status { text-align: center; font-size: 12px; color: var(--success); min-height: 16px; margin-top: 8px; }
-.section-divider { height: 1px; background: rgba(255,255,255,0.07); margin: 20px 0 14px; }
+.section-divider { height: 1px; background: rgba(120,120,128,0.16); margin: 20px 0 14px; }
 
 /* ===== Now card + streak strip ===== */
-.now{background:#0E0E10;border:1px solid #1F1F23;border-radius:18px;padding:16px;margin:0 0 10px;}
-.now-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px;}
-.now-title{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--text-tertiary);font-weight:600;margin:0;}
-.now-count{font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary);}
-.now-item{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid #1A1A1E;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.now{background:#FFFFFF;border:0;border-radius:22px;padding:16px 18px 6px;margin:0 0 12px;box-shadow:var(--shadow-card);}
+.now-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px;}
+.now-title{font-size:20px;letter-spacing:-0.015em;color:var(--text-primary);font-weight:700;margin:0;}
+.now-count{font-size:13px;font-weight:500;color:var(--tint-ink);}
+.now-item{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:0.5px solid var(--separator);cursor:pointer;-webkit-tap-highlight-color:transparent;}
 .now-item:last-child{border-bottom:none;}
-.now-box{flex:0 0 auto;width:24px;height:24px;border-radius:8px;border:1.5px solid #2E2E35;}
+.now-item:active .now-box{background:rgba(var(--tint-rgb),0.15);}
+/* round tick circles, like Reminders */
+.now-box{flex:0 0 auto;width:24px;height:24px;border-radius:50%;border:1.5px solid var(--label-4);transition:background 0.15s;}
 .now-text{font-size:16px;color:var(--text-primary);flex:1;}
-.now-sub{display:block;font-size:12px;color:var(--text-tertiary);margin-top:2px;}
-.now-empty{padding:6px 0 2px;font-size:15px;color:var(--text-tertiary);}
+.now-sub{display:block;font-size:13px;color:var(--text-tertiary);margin-top:2px;}
+.now-empty{padding:10px 0 12px;font-size:15px;color:var(--text-tertiary);}
 /* water row */
-.now-water{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid #1A1A1E;}
+.now-water{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:0.5px solid var(--separator);}
 .now-water:last-child{border-bottom:none;}
 .now-water-emoji{font-size:20px;flex:0 0 auto;width:24px;text-align:center;}
 .now-water-txt{flex:1;font-size:16px;color:var(--text-primary);}
 .now-water-txt b{font-variant-numeric:tabular-nums;}
-.now-plus{flex:0 0 auto;width:40px;height:34px;border-radius:10px;border:1px solid #2E2E35;background:#17171B;
-  color:#60A5FA;font-size:20px;font-weight:600;line-height:1;cursor:pointer;font-family:inherit;}
-.now-plus:active{transform:scale(0.95);}
+.now-plus{flex:0 0 auto;width:34px;height:34px;border-radius:50%;border:0;background:rgba(50,173,230,0.14);
+  color:#0071A4;font-size:22px;font-weight:600;line-height:1;cursor:pointer;font-family:inherit;}
+.now-plus:active{transform:scale(0.92);}
 /* streak strip */
-.strip{display:flex;gap:8px;margin:0 0 14px;}
-.strip-item{flex:1;background:#0E0E10;border:1px solid #1F1F23;border-radius:14px;padding:10px 12px;
+.strip{display:flex;gap:10px;margin:0 0 12px;}
+.strip-item{flex:1;background:#FFFFFF;border:0;border-radius:18px;padding:12px 14px;box-shadow:var(--shadow-card);
   text-align:left;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;}
-.strip-item:active{transform:scale(0.98);}
-.strip-num{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent,#6BE3A4);line-height:1;}
-.strip-unit{font-size:11px;color:var(--text-tertiary);margin-left:3px;}
-.strip-label{font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-secondary);margin-top:5px;font-weight:600;}
+.strip-item:active{transform:scale(0.97);}
+.strip-num{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent,#248A3D);line-height:1;letter-spacing:-0.02em;}
+.strip-unit{font-size:12px;font-weight:500;color:var(--text-tertiary);margin-left:3px;}
+.strip-label{font-size:12px;letter-spacing:0;color:var(--text-secondary);margin-top:6px;font-weight:600;}
 
 /* steps / sleep vitals strip — read-only mirror of health.html's
    apple_health row, front and center on the home screen */
-.vitals{display:flex;gap:8px;margin:0 0 14px;}
-.vital-item{flex:1;background:#0E0E10;border:1px solid #1F1F23;border-radius:14px;padding:10px 12px;
+.vitals{display:flex;gap:10px;margin:0 0 22px;}
+.vital-item{flex:1;background:#FFFFFF;border:0;border-radius:18px;padding:12px 14px;box-shadow:var(--shadow-card);
   text-decoration:none;display:block;}
-.vital-num{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text-primary);line-height:1;}
-.vital-num.stale{color:var(--text-tertiary);}
-.vital-label{font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-secondary);margin-top:5px;font-weight:600;}
+.vital-num{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text-primary);line-height:1;letter-spacing:-0.02em;}
+.vital-num.stale{color:var(--text-tertiary);font-size:17px;}
+.vital-label{font-size:12px;letter-spacing:0;color:var(--text-secondary);margin-top:6px;font-weight:600;}
 </style>
+<link rel="stylesheet" href="theme.css">
 </head>
 <body>
 <div class="page">
@@ -271,15 +268,15 @@ body::after {
   </section>
 
   <div class="strip">
-    <button class="strip-item" id="stripAlc" type="button" style="--accent:#6BE3A4">
+    <button class="strip-item" id="stripAlc" type="button" style="--accent:#34C759">
       <div><span class="strip-num" id="alcNum">0</span><span class="strip-unit">days</span></div>
       <div class="strip-label">Alcohol free</div>
     </button>
-    <button class="strip-item" id="stripNic" type="button" style="--accent:#60A5FA">
+    <button class="strip-item" id="stripNic" type="button" style="--accent:#007AFF">
       <div><span class="strip-num" id="nicNum">0</span><span class="strip-unit">days</span></div>
       <div class="strip-label">Nicotine free</div>
     </button>
-    <button class="strip-item" id="stripIg" type="button" style="--accent:#A78BFA">
+    <button class="strip-item" id="stripIg" type="button" style="--accent:#5856D6">
       <div><span class="strip-num" id="igNum">0</span><span class="strip-unit">days</span></div>
       <div class="strip-label">Off Instagram</div>
     </button>
@@ -299,7 +296,7 @@ body::after {
   <div class="bento">
 
     <!-- Big tile -->
-    <a class="tile big" href="plan.html" style="--accent:#6BE3A4">
+    <a class="tile big" href="plan.html" style="--accent:#34C759">
       <div class="tile-top">
         <span class="tile-num">·00</span>
         <span class="tile-emoji">📋</span>
@@ -308,11 +305,11 @@ body::after {
       <h2 class="tile-title">The Plan</h2>
       <div class="tile-foot">
         <span class="tile-sub">Rules, training &amp; meal prep</span>
-        <span class="tile-arrow">→</span>
+        <span class="tile-arrow">›</span>
       </div>
     </a>
 
-    <a class="tile big" href="main.html" style="--accent:#6BE3A4">
+    <a class="tile big" href="main.html" style="--accent:#34C759">
       <div class="tile-top">
         <span class="tile-num">·01</span>
         <span class="tile-emoji">🏠</span>
@@ -321,12 +318,12 @@ body::after {
       <h2 class="tile-title">Main</h2>
       <div class="tile-foot">
         <span class="tile-sub">Goals & daily plan</span>
-        <span class="tile-arrow">→</span>
+        <span class="tile-arrow">›</span>
       </div>
     </a>
 
     <!-- Wide tile -->
-    <a class="tile wide" href="gym.html" style="--accent:#7DD3FC">
+    <a class="tile wide" href="gym.html" style="--accent:#32ADE6">
       <div class="tile-top">
         <span class="tile-num">·02</span>
         <span class="tile-emoji">💪</span>
@@ -335,12 +332,12 @@ body::after {
       <h2 class="tile-title">Fitness</h2>
       <div class="tile-foot">
         <span class="tile-sub">Workouts, splits, sessions</span>
-        <span class="tile-arrow">→</span>
+        <span class="tile-arrow">›</span>
       </div>
     </a>
 
     <!-- Small tile -->
-    <a class="tile" href="health.html" style="--accent:#6BE3A4">
+    <a class="tile" href="health.html" style="--accent:#34C759">
       <div class="tile-top">
         <span class="tile-num">·03</span>
         <span class="tile-emoji">🫀</span>
@@ -349,12 +346,12 @@ body::after {
       <h2 class="tile-title">Health</h2>
       <div class="tile-foot">
         <span class="tile-sub">Weight, steps & sleep</span>
-        <span class="tile-arrow">→</span>
+        <span class="tile-arrow">›</span>
       </div>
     </a>
 
     <!-- Small tile -->
-    <a class="tile" href="po-water.html" style="--accent:#60A5FA">
+    <a class="tile" href="po-water.html" style="--accent:#007AFF">
       <div class="tile-top">
         <span class="tile-num">·04</span>
         <span class="tile-emoji">💧</span>
@@ -363,12 +360,12 @@ body::after {
       <h2 class="tile-title">Water</h2>
       <div class="tile-foot">
         <span class="tile-sub">Hydration</span>
-        <span class="tile-arrow">→</span>
+        <span class="tile-arrow">›</span>
       </div>
     </a>
 
     <!-- Wide tile -->
-    <a class="tile wide" href="finance.html" style="--accent:#F2C063">
+    <a class="tile wide" href="finance.html" style="--accent:#FF9500">
       <div class="tile-top">
         <span class="tile-num">·05</span>
         <span class="tile-emoji">📊</span>
@@ -377,12 +374,12 @@ body::after {
       <h2 class="tile-title">Finance</h2>
       <div class="tile-foot">
         <span class="tile-sub">Net worth & spending</span>
-        <span class="tile-arrow">→</span>
+        <span class="tile-arrow">›</span>
       </div>
     </a>
 
     <!-- Small tile -->
-    <a class="tile" href="caffeine.html" style="--accent:#C9A36B">
+    <a class="tile" href="caffeine.html" style="--accent:#A2845E">
       <div class="tile-top">
         <span class="tile-num">·06</span>
         <span class="tile-emoji">☕</span>
@@ -391,12 +388,12 @@ body::after {
       <h2 class="tile-title">Caffeine</h2>
       <div class="tile-foot">
         <span class="tile-sub">Intake & timing</span>
-        <span class="tile-arrow">→</span>
+        <span class="tile-arrow">›</span>
       </div>
     </a>
 
     <!-- Small tile -->
-    <a class="tile" href="food-log.html" style="--accent:#FF9F7A">
+    <a class="tile" href="food-log.html" style="--accent:#FF9500">
       <div class="tile-top">
         <span class="tile-num">·07</span>
         <span class="tile-emoji">🍽️</span>
@@ -405,12 +402,12 @@ body::after {
       <h2 class="tile-title">Food</h2>
       <div class="tile-foot">
         <span class="tile-sub">Meals & drinks</span>
-        <span class="tile-arrow">→</span>
+        <span class="tile-arrow">›</span>
       </div>
     </a>
 
     <!-- Small tile -->
-    <a class="tile" href="business.html" style="--accent:#60A5FA">
+    <a class="tile" href="business.html" style="--accent:#007AFF">
       <div class="tile-top">
         <span class="tile-num">·08</span>
         <span class="tile-emoji">📈</span>
@@ -419,12 +416,12 @@ body::after {
       <h2 class="tile-title">Business</h2>
       <div class="tile-foot">
         <span class="tile-sub">MRR, clients & goals</span>
-        <span class="tile-arrow">→</span>
+        <span class="tile-arrow">›</span>
       </div>
     </a>
 
     <!-- Wide tile -->
-    <a class="tile wide" href="food-chat.html" style="--accent:#A78BFA">
+    <a class="tile wide" href="food-chat.html" style="--accent:#5856D6">
       <div class="tile-top">
         <span class="tile-num">·09</span>
         <span class="tile-emoji">💬</span>
@@ -433,12 +430,12 @@ body::after {
       <h2 class="tile-title">Tell me what you ate</h2>
       <div class="tile-foot">
         <span class="tile-sub">Type it, it sorts itself into the log</span>
-        <span class="tile-arrow">→</span>
+        <span class="tile-arrow">›</span>
       </div>
     </a>
 
     <!-- Small tile -->
-    <a class="tile" href="reminders.html" style="--accent:#F2C063">
+    <a class="tile" href="reminders.html" style="--accent:#FF9500">
       <div class="tile-top">
         <span class="tile-num">·10</span>
         <span class="tile-emoji">⏰</span>
@@ -447,7 +444,7 @@ body::after {
       <h2 class="tile-title">Reminders</h2>
       <div class="tile-foot">
         <span class="tile-sub">Water, creatine & more</span>
-        <span class="tile-arrow">→</span>
+        <span class="tile-arrow">›</span>
       </div>
     </a>
 
@@ -815,9 +812,9 @@ body::after {
     el.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);'
       + 'bottom:calc(84px + env(safe-area-inset-bottom));z-index:9999;'
       + 'padding:12px 18px;border-radius:999px;font:600 14px -apple-system,BlinkMacSystemFont,sans-serif;'
-      + 'background:' + (ok ? 'rgba(107,227,164,0.16)' : 'rgba(255,107,107,0.16)') + ';'
-      + 'border:1px solid ' + (ok ? 'rgba(107,227,164,0.5)' : 'rgba(255,107,107,0.5)') + ';'
-      + 'color:' + (ok ? '#6BE3A4' : '#FF8A8A') + ';backdrop-filter:blur(12px);';
+      + 'background:' + (ok ? 'rgba(52,199,89,0.16)' : 'rgba(255,59,48,0.16)') + ';'
+      + 'border:1px solid ' + (ok ? 'rgba(52,199,89,0.5)' : 'rgba(255,59,48,0.5)') + ';'
+      + 'color:' + (ok ? '#34C759' : '#FF3B30') + ';backdrop-filter:blur(12px);';
     document.body.appendChild(el);
     setTimeout(function () { el.remove(); }, 3200);
   }

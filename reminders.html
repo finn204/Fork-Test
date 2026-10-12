@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-tint="teal">
 <head>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#050506">
+<meta name="theme-color" content="#F2F2F7">
 <title>Reminders · Dashboard</title>
 
 <script src="/api/config"></script>
@@ -17,19 +17,19 @@
 
 <style>
 :root {
-  --text-primary: #FAFAFA;
-  --text-secondary: #B8B6B0;
-  --text-tertiary: #76746E;
-  --success: #6BE3A4;
-  --warning: #F2C063;
-  --danger:  #FF6B6B;
+  --text-primary: #1D1D1F;
+  --text-secondary: #3C3C43;
+  --text-tertiary: #8E8E93;
+  --success: #34C759;
+  --warning: #FF9500;
+  --danger:  #FF3B30;
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;
-  background: #050506;
+  background: #F2F2F7;
   color: var(--text-secondary);
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
@@ -46,8 +46,8 @@ body::before {
   content: '';
   position: fixed; inset: 0;
   background:
-    radial-gradient(circle at 82% 14%, rgba(167, 139, 250, 0.16), transparent 45%),
-    radial-gradient(circle at 18% 90%, rgba(180, 180, 200, 0.06), transparent 50%);
+    radial-gradient(circle at 82% 14%, rgba(88,86,214,0.2), transparent 45%),
+    radial-gradient(circle at 18% 90%, rgba(255,255,255,0.06), transparent 50%);
   filter: blur(40px);
   pointer-events: none;
   z-index: -2;
@@ -56,7 +56,7 @@ body::before {
 body::after {
   content: '';
   position: fixed; inset: 0;
-  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(120,120,128,0.06) 1px, transparent 1px);
   background-size: 3px 3px;
   pointer-events: none;
   z-index: -1;
@@ -72,7 +72,7 @@ body::after {
   margin: 0 0 6px;
   font-size: 28px; font-weight: 700;
   letter-spacing: -0.025em;
-  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  background: linear-gradient(180deg, #1D1D1F 0%, #3C3C43 120%);
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent; color: transparent;
 }
@@ -96,18 +96,18 @@ body::after {
 }
 .section-title::after {
   content: ''; flex: 1; height: 1px;
-  background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent);
+  background: linear-gradient(90deg, rgba(120,120,128,0.16), transparent);
 }
 
 .gm-card {
   position: relative;
-  background: rgba(255, 255, 255, 0.04);
+  background: #FFFFFF;
   border-radius: 16px;
   padding: 20px;
   margin-bottom: 14px;
   backdrop-filter: blur(24px) saturate(1.2);
   -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.081);
   overflow: hidden;
 }
 
@@ -116,76 +116,72 @@ body::after {
   text-align: center; font-size: 12px; font-style: italic;
   color: var(--text-tertiary); padding: 14px 0;
 }
+/* Apple-style list: rows split by hairlines, no boxes */
 .rem-row {
   display: flex; align-items: center; gap: 12px;
-  padding: 12px 14px; margin-bottom: 6px;
-  background: rgba(255,255,255,0.035);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 12px;
-  transition: background 0.2s, opacity 0.2s;
+  padding: 14px 2px; margin: 0;
+  background: transparent;
+  border: 0; border-bottom: 0.5px solid var(--separator);
+  border-radius: 0;
+  transition: opacity 0.2s;
 }
-.rem-row:hover { background: rgba(255,255,255,0.06); }
+.rem-row:last-child { border-bottom: 0; }
 .rem-row.is-off { opacity: 0.45; }
 .rem-time {
-  font-family: var(--font-mono);
-  font-size: 15px; font-weight: 600; color: var(--text-primary);
-  flex-shrink: 0; width: 104px;
+  font-size: 19px; font-weight: 600; color: var(--text-primary);
+  letter-spacing: -0.01em;
+  flex-shrink: 0; width: 112px;
   outline: none; border: 0; background: transparent; color: inherit;
-  font-family: inherit; padding: 0;
+  font-family: var(--font-rounded); padding: 0;
 }
-.rem-time::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
+.rem-time::-webkit-calendar-picker-indicator { opacity: 0.35; cursor: pointer; }
 .rem-body { flex: 1; min-width: 0; }
 .rem-label {
-  font-size: 14px; color: var(--text-primary);
-  outline: none; border-radius: 4px; padding: 2px 4px; margin: -2px -4px;
+  font-size: 16px; font-weight: 500; color: var(--text-primary);
+  outline: none; border-radius: 6px; padding: 2px 4px; margin: -2px -4px;
 }
-.rem-label[contenteditable="true"] {
-  outline: 1px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.28);
-}
+.rem-label[contenteditable="true"]:focus { background: var(--fill); }
 .rem-message {
-  font-size: 11.5px; color: var(--text-tertiary); margin-top: 2px;
-  outline: none; border-radius: 4px; padding: 2px 4px; margin-left: -4px;
+  font-size: 13px; color: var(--text-tertiary); margin-top: 2px;
+  outline: none; border-radius: 6px; padding: 2px 4px; margin-left: -4px;
 }
-.rem-message[contenteditable="true"] {
-  outline: 1px solid rgba(255,255,255,0.14); background: rgba(0,0,0,0.22);
-}
+.rem-message[contenteditable="true"]:focus { background: var(--fill); }
 
 /* Mon-Sun picker. All seven lit = every day. */
-.rem-days { display: flex; gap: 3px; margin-top: 6px; }
+.rem-days { display: flex; gap: 4px; margin-top: 8px; }
 .rem-day {
-  width: 20px; height: 20px; padding: 0;
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 6px;
-  background: transparent;
+  width: 24px; height: 24px; padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fill-2);
   color: var(--text-tertiary);
-  font-family: inherit; font-size: 9.5px; font-weight: 700;
+  font-family: inherit; font-size: 11px; font-weight: 600;
   line-height: 1; cursor: pointer;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  transition: background 0.12s, color 0.12s;
 }
-.rem-day:hover { border-color: rgba(255,255,255,0.24); }
+.rem-day:hover { background: var(--fill); }
 .rem-day.on {
-  background: rgba(107,227,164,0.16);
-  border-color: rgba(107,227,164,0.45);
-  color: var(--success);
+  background: var(--tint);
+  color: #FFFFFF;
 }
 
 /* iOS-style pill toggle */
 .rem-toggle {
   position: relative; flex-shrink: 0;
-  width: 42px; height: 25px; border-radius: 999px;
-  background: rgba(255,255,255,0.14);
+  width: 51px; height: 31px; border-radius: 999px;
+  background: rgba(120,120,128,0.16);
   border: 0; cursor: pointer; padding: 0;
   transition: background 0.2s;
 }
 .rem-toggle.on { background: var(--success); }
 .rem-toggle::before {
   content: '';
-  position: absolute; top: 2.5px; left: 2.5px;
-  width: 20px; height: 20px; border-radius: 50%;
-  background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  position: absolute; top: 2px; left: 2px;
+  width: 27px; height: 27px; border-radius: 50%;
+  background: #FFFFFF; box-shadow: 0 3px 8px rgba(0,0,0,0.15), 0 1px 1px rgba(0,0,0,0.06);
   transition: transform 0.2s;
 }
-.rem-toggle.on::before { transform: translateX(17px); }
+.rem-toggle.on::before { transform: translateX(20px); }
 
 .rem-delete {
   border: 0; background: transparent; color: var(--text-tertiary);
@@ -199,12 +195,12 @@ body::after {
 .gm-input-wrap {
   display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
   margin-top: 14px; padding-top: 14px;
-  border-top: 1px solid rgba(255,255,255,0.06);
+  border-top: 1px solid rgba(60,60,67,0.096);
 }
 .gm-input, .gm-time-input {
   padding: 11px 14px;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px; background: rgba(0,0,0,0.28);
+  border: 1px solid rgba(60,60,67,0.128);
+  border-radius: 12px; background: rgba(120,120,128,0.12);
   color: var(--text-primary);
   font-family: inherit; font-size: 14px; outline: none;
   transition: border-color 0.2s, background 0.2s;
@@ -212,17 +208,17 @@ body::after {
 .gm-input { flex: 1; min-width: 160px; }
 .gm-time-input { width: 110px; font-family: var(--font-mono); }
 .gm-input::placeholder { color: var(--text-tertiary); }
-.gm-input:focus, .gm-time-input:focus { border-color: rgba(255,255,255,0.28); background: rgba(0,0,0,0.36); }
+.gm-input:focus, .gm-time-input:focus { border-color: rgba(60,60,67,0.3); background: rgba(120,120,128,0.12); }
 
 .gm-add {
   padding: 11px 20px; border: 0; border-radius: 12px;
-  background: linear-gradient(180deg, #FFFFFF 0%, #E8E5DD 100%);
-  color: #0A0A0B; font-family: inherit; font-size: 13px; font-weight: 700;
+  background: var(--tint, #007AFF);
+  color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700;
   cursor: pointer;
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.9),
-    0 2px 8px rgba(0,0,0,0.35),
-    0 8px 22px rgba(0,0,0,0.25);
+    inset 0 1px 0 rgba(255,255,255,0.315),
+    0 2px 8px rgba(0,0,0,0.063),
+    0 8px 22px rgba(0,0,0,0.045);
   transition: transform 0.1s, filter 0.15s;
 }
 .gm-add:hover { filter: brightness(1.06); transform: translateY(-1px); }
@@ -232,8 +228,8 @@ body::after {
   display: flex; align-items: center; gap: 10px;
   font-size: 12px; color: var(--text-tertiary);
   padding: 12px 14px; border-radius: 12px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(120,120,128,0.10);
+  border: 1px solid rgba(60,60,67,0.096);
 }
 .rem-note b { color: var(--text-secondary); }
 
@@ -244,12 +240,13 @@ body::after {
      wrapping to three lines. Stack instead: time and the controls on
      one line, the label, message and day picker full width beneath. */
   .rem-row { flex-wrap: wrap; row-gap: 8px; }
-  .rem-time { width: 104px; font-size: 15px; order: 1; }
+  .rem-time { width: 112px; font-size: 19px; order: 1; }
   .rem-toggle { order: 2; margin-left: auto; }
   .rem-delete { order: 3; opacity: 1; }
   .rem-body { order: 4; flex-basis: 100%; min-width: 100%; }
 }
 </style>
+<link rel="stylesheet" href="theme.css">
 </head>
 <body>
 <div class="page">
@@ -261,8 +258,8 @@ body::after {
     <div class="section-title">Your Reminders</div>
     <div class="gm-card">
       <div id="remSaveWarn" style="display:none;margin:0 0 12px;padding:10px 12px;border-radius:10px;
-           background:rgba(255,107,107,0.12);border:1px solid rgba(255,107,107,0.45);
-           color:#FF8A8A;font-size:13px;font-weight:600;"></div>
+           background:rgba(255,59,48,0.15);border:1px solid rgba(255,59,48,0.563);
+           color:#FF3B30;font-size:13px;font-weight:600;"></div>
       <ul class="rem-list" id="remList"></ul>
 
       <div class="gm-input-wrap">

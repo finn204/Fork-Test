@@ -12,110 +12,83 @@
 
   // -------- CSS --------
   const css = `
+/* Frosted bars, tinted with the page's colour (theme.css sets --tint). */
+/* Full width and flush to the top, whatever padding the page's body has. */
+body.has-topbar { padding-top: 0 !important; }
 .topbar {
   position: sticky; top: 0; z-index: 40;
   display: flex; justify-content: flex-end; align-items: center;
-  gap: 8px;
+  gap: 10px;
+  margin: 0 calc(50% - 50vw) 16px;
   padding: max(10px, env(safe-area-inset-top)) 14px 8px;
-  background: #0a0a0b;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  background: rgba(242, 242, 247, 0.78);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid rgba(60, 60, 67, 0.14);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, sans-serif;
 }
-.topbar-finance-btn {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 44px; height: 42px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 12px;
-  text-decoration: none;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s;
-}
-.topbar-finance-btn:hover { background: rgba(255, 255, 255, 0.08); }
-.topbar-finance-icon {
-  font-size: 20px; line-height: 1;
-  filter: grayscale(100%) brightness(1.4);
-  opacity: 0.85;
-}
-.topbar-bell-btn {
+.topbar-finance-btn, .topbar-bell-btn {
   position: relative;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 44px; height: 42px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 12px;
-  cursor: pointer;
+  width: 38px; height: 38px; padding: 0;
+  border: 0; border-radius: 50%;
+  background: rgba(var(--tint-rgb, 0, 122, 255), 0.12);
+  color: var(--tint, #007AFF);
+  text-decoration: none; cursor: pointer; font-family: inherit;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.15s, transform 0.1s;
-  font-family: inherit;
-  padding: 0;
 }
-.topbar-bell-btn:hover { background: rgba(255, 255, 255, 0.08); }
-.topbar-bell-btn:active { transform: scale(0.94); }
-.topbar-bell-icon {
-  font-size: 19px; line-height: 1;
-  filter: grayscale(100%) brightness(1.4);
-  opacity: 0.85;
-}
-.topbar-bell-btn.on .topbar-bell-icon { filter: none; opacity: 1; }
+.topbar-finance-btn:hover, .topbar-bell-btn:hover { background: rgba(var(--tint-rgb, 0, 122, 255), 0.18); }
+.topbar-finance-btn:active, .topbar-bell-btn:active { transform: scale(0.94); }
+.topbar-icon { width: 20px; height: 20px; display: block; fill: currentColor; }
 .topbar-bell-dot {
-  position: absolute; top: 7px; right: 7px;
+  position: absolute; top: 6px; right: 6px;
   width: 8px; height: 8px; border-radius: 50%;
-  background: #6BE3A4;
-  box-shadow: 0 0 6px rgba(107, 227, 164, 0.65);
+  background: #34C759;
+  box-shadow: 0 0 0 2px #FFFFFF;
   display: none;
 }
 .topbar-bell-btn.on .topbar-bell-dot { display: block; }
 .topbar-bell-btn.busy { opacity: 0.6; pointer-events: none; }
 
-/* Bottom tab bar — Instagram-style */
+/* Bottom tab bar, iOS style */
 .bottombar {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
   display: flex; justify-content: space-around; align-items: stretch;
-  padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
-  background: #0a0a0b;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  padding: 6px 0 calc(4px + env(safe-area-inset-bottom));
+  background: rgba(249, 249, 249, 0.82);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-top: 0.5px solid rgba(60, 60, 67, 0.18);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, sans-serif;
 }
 .bottombar-tab {
   flex: 1;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 3px;
-  padding: 6px 0 4px;
+  gap: 2px;
+  padding: 4px 0 2px;
   text-decoration: none;
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 10px; font-weight: 600;
-  letter-spacing: 0.04em;
+  color: #999999;
+  font-size: 10px; font-weight: 500;
+  letter-spacing: 0.01em;
   -webkit-tap-highlight-color: transparent;
   transition: color 0.15s;
 }
 .bottombar-tab-icon {
-  font-size: 24px; line-height: 1;
-  filter: grayscale(100%) brightness(1.2);
-  opacity: 0.55;
-  transition: opacity 0.15s, filter 0.15s, transform 0.10s;
+  width: 26px; height: 26px; display: block; fill: currentColor;
+  transition: transform 0.10s;
 }
-.bottombar-tab.active {
-  color: #FAFAFA;
-}
-.bottombar-tab.active .bottombar-tab-icon {
-  filter: grayscale(100%) brightness(1.6);
-  opacity: 1;
-}
+.bottombar-tab.active { color: var(--tint, #007AFF); }
 .bottombar-tab:active .bottombar-tab-icon { transform: scale(0.92); }
 
 /* Push page content above the fixed bottom bar */
 body.has-bottombar {
-  padding-bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+  padding-bottom: calc(76px + env(safe-area-inset-bottom)) !important;
 }
 
 @media (max-width: 480px) {
-  .topbar { padding-left: 10px; padding-right: 10px; gap: 6px; }
-  .topbar-bell-btn { width: 40px; height: 38px; }
-  .topbar-finance-btn { width: 40px; height: 38px; }
-  .topbar-finance-icon { font-size: 18px; }
-  .bottombar-tab-icon { font-size: 22px; }
-  .bottombar-tab { font-size: 10px; }
+  .topbar { padding-left: 10px; padding-right: 10px; gap: 8px; }
+  .bottombar-tab-icon { width: 25px; height: 25px; }
 }
 
 /* === Global mobile lockdown ===
@@ -168,11 +141,11 @@ body.topbar-modal-open {
   const topbarHtml = `
 <header class="topbar" id="topbar" role="navigation" aria-label="Quick actions">
   <button class="topbar-bell-btn" id="topbarBell" type="button" aria-label="Notifications">
-    <span class="topbar-bell-icon">🔔</span>
+    <svg class="topbar-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
     <span class="topbar-bell-dot"></span>
   </button>
   <a href="finance.html" class="topbar-finance-btn" id="topbarFinance" aria-label="Finance">
-    <span class="topbar-finance-icon">📊</span>
+    <svg class="topbar-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/></svg>
   </a>
 </header>
 `;
@@ -180,23 +153,23 @@ body.topbar-modal-open {
   const bottombarHtml = `
 <nav class="bottombar" id="bottombar" role="navigation" aria-label="Main tabs">
   <a href="index.html" class="bottombar-tab" data-page="main">
-    <span class="bottombar-tab-icon">🏠</span>
+    <svg class="bottombar-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
     <span>Main</span>
   </a>
   <a href="gym.html" class="bottombar-tab" data-page="fitness">
-    <span class="bottombar-tab-icon">💪</span>
+    <svg class="bottombar-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.57 14.86 22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29z"/></svg>
     <span>Fitness</span>
   </a>
   <a href="health.html" class="bottombar-tab" data-page="health">
-    <span class="bottombar-tab-icon">🫀</span>
+    <svg class="bottombar-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 21.35-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
     <span>Health</span>
   </a>
   <a href="reminders.html" class="bottombar-tab" data-page="reminders">
-    <span class="bottombar-tab-icon">⏰</span>
+    <svg class="bottombar-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m22 5.72-4.6-3.86-1.29 1.53 4.6 3.86L22 5.72zM7.88 3.39 6.6 1.86 2 5.71l1.29 1.53 4.59-3.85zM12.5 8H11v6l4.75 2.85.75-1.23-4-2.37V8zM12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 16c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
     <span>Remind</span>
   </a>
   <a href="trip.html" class="bottombar-tab" data-page="trip">
-    <span class="bottombar-tab-icon">✈️</span>
+    <svg class="bottombar-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>
     <span>Trip</span>
   </a>
 </nav>
@@ -250,7 +223,7 @@ body.topbar-modal-open {
 
     // Reserve room above the fixed bottom bar so page content can scroll
     // past it without being hidden.
-    document.body.classList.add('has-bottombar');
+    document.body.classList.add('has-bottombar', 'has-topbar');
   }
 
   // -------- Active-date helpers (match the goals page 6 AM rollover) --------
