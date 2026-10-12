@@ -1,24 +1,60 @@
 name: Reminders cron
 
 # Vercel's Hobby-plan cron only fires once a day, but reminders need
-# to land at specific times throughout the day. GitHub Actions'
-# schedule trigger has no such limit, so this polls the check
-# endpoint every 5 minutes instead — it's a no-op most of the time
-# (the endpoint itself decides whether anything's actually due).
+# to land at specific times throughout the day.
+#
+# A plain '*/5 * * * *' schedule was meant to poll every 5 minutes, but
+# GitHub only actually ran it every 4-6 hours (scheduled runs are best
+# effort and get dropped under load). Everything due in between then
+# arrived in one burst.
+#
+# So each run now stays up and polls the endpoint once a minute for
+# ~5h40m (jobs are capped at 6h), then queues the next run of itself
+# before it exits. The concurrency group holds that queued run until
+# this one finishes, so there is always exactly one poller with only a
+# few seconds' gap between runs. The schedule stays as a backstop in
+# case the chain ever breaks. Public repo, so the minutes are free.
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '*/30 * * * *'
   workflow_dispatch: {}
+  # Start the chain the moment this file changes, not hours later.
+  push:
+    branches: [main]
+    paths: ['.github/workflows/reminders-cron.yml']
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: reminders-poller
+  cancel-in-progress: false
 
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 355
     steps:
-      - name: Hit /api/check-reminders
+      - name: Hit /api/check-reminders every minute
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          if [ -n "${{ secrets.CRON_SECRET }}" ]; then
-            curl -sf -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-              https://fork-test-rose.vercel.app/api/check-reminders
-          else
-            curl -sf https://fork-test-rose.vercel.app/api/check-reminders
-          fi
+          end=$(( $(date +%s) + 340 * 60 ))
+          while [ "$(date +%s)" -lt "$end" ]; do
+            started=$(date +%s)
+            if [ -n "$CRON_SECRET" ]; then
+              curl -s -m 50 -H "Authorization: Bearer $CRON_SECRET" \
+                https://fork-test-rose.vercel.app/api/check-reminders || true
+            else
+              curl -s -m 50 https://fork-test-rose.vercel.app/api/check-reminders || true
+            fi
+            echo
+            sleep $(( 60 - ($(date +%s) - started) % 60 ))
+          done
+
+      - name: Queue the next poller
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run reminders-cron.yml --repo "$GITHUB_REPOSITORY" --ref main

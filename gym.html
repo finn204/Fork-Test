@@ -1744,7 +1744,7 @@ img, video, canvas, svg { max-width: 100%; }
         if (found >= 0) idx = found;
       }
       s.splitAnchor = {
-        date: (CONFIG.splitAnchor && CONFIG.splitAnchor.date) || new Date().toISOString().slice(0, 10),
+        date: (CONFIG.splitAnchor && CONFIG.splitAnchor.date) || localYmd(new Date()),
         index: idx
       };
     }
@@ -1995,6 +1995,13 @@ img, video, canvas, svg { max-width: 100%; }
       });
     });
   }
+  // The phone's own calendar day. toISOString() is UTC, which in NZ is
+  // still yesterday until 1pm, so an anchor saved in the morning was a
+  // day behind and shifted the whole rotation.
+  function localYmd(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
   // Compute today's split from state.splitRotation + state.splitAnchor.
   // Returns the rotation entry name (e.g. "Push" or "Rest") AND the index.
   function todaySplit() {
@@ -2495,7 +2502,7 @@ img, video, canvas, svg { max-width: 100%; }
     if (newTodayIdx >= cleaned.length) newTodayIdx = 0;
     state.splitRotation = cleaned;
     state.splitAnchor = {
-      date: new Date().toISOString().slice(0, 10),
+      date: localYmd(new Date()),
       index: newTodayIdx
     };
     saveState();
