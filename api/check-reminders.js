@@ -347,6 +347,39 @@ async function buildCleanCheck(supabase, today) {
 // Add a type in both places, or it will not appear for someone whose
 // row already exists.
 // ============================================================
+
+// A 'client-followups' reminder looks at the follow-up times set on the
+// Clients page (clients.html saves them under clients:edits in the
+// 'clients' row). Anything whose time has passed, isn't marked done and
+// hasn't been notified for that exact time yet goes out in one push.
+// Returns null when nothing is due, so the 15-minute repeat stays quiet.
+// The stamp is applied only after a send succeeds (see stampFollowups).
+function parseMaybe(v) { if (typeof v === 'string') { try { return JSON.parse(v); } catch { return null; } } return v; }
+async function buildFollowupsBody(supabase, today, currentTime) {
+  const { data: row } = await supabase.from('app_state').select('data').eq('key', 'clients').maybeSingle();
+  const edits = (row && row.data && parseMaybe(row.data['clients:edits'])) || {};
+  const now = `${today}T${currentTime}`;
+  const due = Object.keys(edits).filter((name) => {
+    const e = edits[name] || {};
+    return e.followUp && !e.followUpDone && e.followUp.slice(0, 16) <= now && e.notifiedFor !== e.followUp;
+  });
+  if (!due.length) return null;
+  const first = edits[due[0]];
+  let body = `Follow up: ${due[0]}` + (first.nextStep ? ` — ${first.nextStep}` : '');
+  if (due.length > 1) body += ` (+${due.length - 1} more: ${due.slice(1, 4).join(', ')})`;
+  return { body, names: due };
+}
+async function stampFollowups(supabase, names) {
+  const { data: row } = await supabase.from('app_state').select('data').eq('key', 'clients').maybeSingle();
+  if (!row || !row.data) return;
+  const data = { ...row.data };
+  const wasString = typeof data['clients:edits'] === 'string';
+  const edits = parseMaybe(data['clients:edits']) || {};
+  for (const n of names) if (edits[n]) edits[n] = { ...edits[n], notifiedFor: edits[n].followUp };
+  data['clients:edits'] = wasString ? JSON.stringify(edits) : edits;
+  await supabase.from('app_state').upsert({ key: 'clients', data, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+}
+
 const AUTO_TYPES = [
   { id: 'daily-digest',  time: '20:30', label: 'Daily Recap',   type: 'digest' },
   { id: 'stale-leads',   time: '09:00', label: 'Stale Leads',   type: 'stale-leads', days: [1, 2, 3, 4, 5] },
@@ -354,6 +387,7 @@ const AUTO_TYPES = [
   { id: 'food-check',    time: '12:00', label: 'Food Log',      type: 'food-check', repeatMins: 150, until: '21:00' },
   { id: 'coffee-cutoff', time: '14:00', label: 'Coffee Cutoff', type: 'coffee-cutoff' },
   { id: 'clean-check',   time: '21:00', label: 'Clean Day',     type: 'clean-check', repeatMins: 60, until: '23:00' },
+  { id: 'client-followups', time: '07:00', label: 'Client follow-up', type: 'client-followups', repeatMins: 15, until: '21:30' },
 ];
 
 // A type added now should not fire retroactively for a time that has
@@ -428,6 +462,11 @@ export default async function handler(req, res) {
         else if (item.type === 'food-check') body = await buildFoodCheckBody(supabase, today, currentTime);
         else if (item.type === 'coffee-cutoff') body = await buildCoffeeCutoffBody(supabase, today, currentTime);
         else if (item.type === 'clean-check') body = await buildCleanCheck(supabase, today);
+        else if (item.type === 'client-followups') {
+          const fu = await buildFollowupsBody(supabase, today, currentTime);
+          body = fu ? fu.body : null;
+          if (fu) item._followNames = fu.names;
+        }
         else body = item.message || (item.label ? item.label + '.' : 'Reminder');
 
         // stale-leads returns null when there's nothing overdue — still
@@ -459,6 +498,7 @@ export default async function handler(req, res) {
             : item.type === 'food-check' ? '/food-log.html'
             : item.type === 'coffee-cutoff' ? '/caffeine.html'
             : item.type === 'stale-leads' ? '/business.html'
+            : item.type === 'client-followups' ? '/clients.html'
             : (item.type === 'digest' || item.type === 'callout') ? '/index.html'
             : '/reminders.html'
         });
@@ -469,6 +509,7 @@ export default async function handler(req, res) {
         const okCount = results.filter(Boolean).length;
         sent += okCount;
         if (okCount > 0) handled.add(item.id);
+        if (okCount > 0 && item._followNames) await stampFollowups(supabase, item._followNames);
       }
 
       if (deadEndpoints.size) {

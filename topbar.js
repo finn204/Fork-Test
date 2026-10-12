@@ -168,6 +168,10 @@ body.topbar-modal-open {
     <svg class="bottombar-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m22 5.72-4.6-3.86-1.29 1.53 4.6 3.86L22 5.72zM7.88 3.39 6.6 1.86 2 5.71l1.29 1.53 4.59-3.85zM12.5 8H11v6l4.75 2.85.75-1.23-4-2.37V8zM12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 16c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
     <span>Remind</span>
   </a>
+  <a href="clients.html" class="bottombar-tab" data-page="clients">
+    <svg class="bottombar-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+    <span>Clients</span>
+  </a>
   <a href="trip.html" class="bottombar-tab" data-page="trip">
     <svg class="bottombar-tab-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>
     <span>Trip</span>
@@ -195,6 +199,7 @@ body.topbar-modal-open {
     if (p.endsWith('gym.html')) return 'fitness';
     if (p.endsWith('reminders.html')) return 'reminders';
     if (p.endsWith('trip.html')) return 'trip';
+    if (p.endsWith('clients.html')) return 'clients';
     return 'main'; // index.html, /, or anything else falls back to main
   }
 

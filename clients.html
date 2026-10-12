@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en" data-tint="purple">
+<head>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<script src="/api/config"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F2F2F7">
+<title>Clients · Dashboard</title>
+
+<!-- Clients page: every Digital Growth client with status, money, contact
+     details and your own notes. Nothing about any client lives in this
+     file — the list sits in localStorage under `clients:list` and your
+     edits under `clients:edits`, both synced through the `clients` row
+     in app_state. A follow-up date on a client becomes a push
+     notification (see type 'client-followups' in api/check-reminders.js). -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<script src="sync.js"></script>
+<script src="topbar.js" defer></script>
+
+<style>
+:root {
+  --text-primary: #1D1D1F; --text-secondary: #3C3C43; --text-tertiary: #8E8E93;
+  --success: #34C759; --warning: #FF9500; --danger: #FF3B30;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #F2F2F7; color: var(--text-secondary); font-family: var(--font); -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; }
+body { min-height: 100vh; overflow-x: hidden; padding: max(28px, env(safe-area-inset-top)) 20px 110px; }
+.page { max-width: 760px; margin: 0 auto; }
+.dash-title { margin: 0 0 4px; font-size: 28px; font-weight: 700; letter-spacing: -0.025em; color: var(--text-primary); }
+.dash-sub { margin: 0 0 18px; font-size: 14px; color: var(--text-tertiary); }
+.gm-card { background: #FFFFFF; border-radius: 16px; padding: 18px; margin-bottom: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.081); }
+.section-title { font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-tertiary); margin: 18px 0 10px; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.stat { background: rgba(120,120,128,0.10); border-radius: 12px; padding: 12px; }
+.stat-num { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-primary); line-height: 1.1; }
+.stat-label { margin-top: 5px; font-size: 13px; font-weight: 600; color: var(--text-tertiary); }
+.search { width: 100%; font: inherit; font-size: 16px; padding: 11px 14px; border-radius: 12px; border: 1px solid rgba(60,60,67,0.15); background: #fff; color: var(--text-primary); }
+.chips { display: flex; gap: 6px; overflow-x: auto; padding: 10px 0 4px; -webkit-overflow-scrolling: touch; }
+.chip { flex: none; font: inherit; font-size: 13.5px; border: 1px solid rgba(60,60,67,0.15); background: #fff; color: var(--text-secondary); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--text-primary); color: #fff; border-color: var(--text-primary); }
+.list { list-style: none; margin: 0; padding: 0; }
+.row { padding: 12px 0; border-bottom: 0.5px solid rgba(60,60,67,0.16); }
+.row:last-child { border-bottom: 0; }
+.row-head { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.row-main { flex: 1; min-width: 0; }
+.row-title { font-size: 16px; color: var(--text-primary); line-height: 1.3; overflow-wrap: anywhere; }
+.row-meta { margin-top: 3px; font-size: 13.5px; color: var(--text-tertiary); overflow-wrap: anywhere; }
+.amt { font-size: 15px; font-variant-numeric: tabular-nums; color: var(--text-primary); white-space: nowrap; }
+.pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.p-ok { color: #248A3D; background: rgba(52,199,89,0.16); }
+.p-bad { color: #D70015; background: rgba(255,59,48,0.13); }
+.p-warn { color: #C93400; background: rgba(255,149,0,0.16); }
+.p-mute { color: #6E6E73; background: rgba(120,120,128,0.14); }
+.edited { color: rgb(var(--tint-rgb, 175,82,222)); font-size: 12px; font-weight: 600; }
+.detail { margin-top: 10px; padding: 12px; border-radius: 12px; background: rgba(120,120,128,0.07); font-size: 14.5px; line-height: 1.5; }
+.detail a { color: rgb(var(--tint-rgb, 0,122,255)); text-decoration: none; }
+.kv { display: grid; grid-template-columns: 96px 1fr; gap: 4px 10px; margin-bottom: 10px; }
+.kv dt { color: var(--text-tertiary); }
+.kv dd { margin: 0; color: var(--text-primary); overflow-wrap: anywhere; }
+.fld { display: block; margin-top: 10px; font-size: 13px; color: var(--text-tertiary); }
+.fld select, .fld input, .fld textarea { display: block; width: 100%; margin-top: 4px; font: inherit; font-size: 16px; padding: 9px 11px; border-radius: 10px; border: 1px solid rgba(60,60,67,0.18); background: #fff; color: var(--text-primary); }
+.fld textarea { min-height: 76px; resize: vertical; }
+.btns { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.btn { font: inherit; font-size: 15px; font-weight: 600; border: 0; border-radius: 10px; padding: 10px 14px; cursor: pointer; background: rgb(var(--tint-rgb, 0,122,255)); color: #fff; }
+.btn.ghost { background: rgba(120,120,128,0.14); color: var(--text-primary); }
+.saved { font-size: 13px; color: #248A3D; align-self: center; }
+.fu { display: flex; gap: 10px; align-items: baseline; padding: 10px 0; border-bottom: 0.5px solid rgba(60,60,67,0.16); cursor: pointer; }
+.fu:last-child { border-bottom: 0; }
+.fu .when { flex: none; width: 92px; font-size: 13.5px; font-weight: 600; color: var(--text-tertiary); }
+.fu.over .when { color: #D70015; }
+.empty { color: var(--text-tertiary); font-size: 14.5px; }
+.count { font-size: 13px; color: var(--text-tertiary); margin: 6px 0 2px; }
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, .row-head:focus-visible { outline: 2px solid rgb(var(--tint-rgb, 0,122,255)); outline-offset: 2px; }
+</style>
+<link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<div class="page">
+  <h1 class="dash-title">Clients</h1>
+  <p class="dash-sub" id="syncedLine">Waiting for data…</p>
+
+  <div class="gm-card">
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-num" id="sMrr">–</div><div class="stat-label">Coming in / mo (incl GST)</div></div>
+      <div class="stat"><div class="stat-num" id="sPaying">–</div><div class="stat-label">Paying clients</div></div>
+      <div class="stat"><div class="stat-num" id="sChase">–</div><div class="stat-label">To chase</div></div>
+      <div class="stat"><div class="stat-num" id="sFollow">–</div><div class="stat-label">Follow-ups due</div></div>
+    </div>
+  </div>
+
+  <div class="section-title">Follow-ups</div>
+  <div class="gm-card"><div id="followList"></div></div>
+
+  <div class="section-title">All clients</div>
+  <input class="search" id="q" type="search" placeholder="Search name, phone, email, town, note" aria-label="Search clients" autocomplete="off">
+  <div class="chips" id="chips"></div>
+  <div class="count" id="count"></div>
+  <div class="gm-card"><ul class="list" id="list"></ul></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var LIST = 'clients:list', EDITS = 'clients:edits', META = 'clients:meta';
+  var STATUSES = ['Paying', 'Card failing', 'Bank late', 'Bank stopped', 'Paused', 'No payment found', 'One-off payment only', 'Cancelled', 'Taken down'];
+  var TONE = { 'Paying': 'p-ok', 'Card failing': 'p-bad', 'Bank stopped': 'p-bad', 'Bank late': 'p-warn', 'No payment found': 'p-warn' };
+  var FILTERS = ['Follow-up set', 'Paying', 'Card failing', 'Bank late', 'Bank stopped', 'Live, not paying', 'No payment found', 'Cancelled', 'Edited'];
+  var filter = '', q = '', open = null;
+
+  function $(id) { return document.getElementById(id); }
+  function read(k, d) { try { var v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } }
+  function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+  function money(v) { return v ? '$' + Math.round(v).toLocaleString('en-NZ') : ''; }
+  function fmtDate(s) { if (!s) return ''; var d = new Date(s.length > 10 ? s : s + 'T00:00'); return isNaN(d) ? s : d.toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' }); }
+  function fmtWhen(s) { var d = new Date(s); if (isNaN(d)) return s; return d.toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' + d.toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit' }); }
+
+  /* A client = the imported row with any of your edits laid over it. */
+  function merged() {
+    var list = read(LIST, []), edits = read(EDITS, {});
+    return list.map(function (c) {
+      var e = edits[c.client] || {};
+      var m = Object.assign({}, c);
+      ['status', 'note', 'nextStep', 'phone', 'email', 'contact', 'followUp', 'followUpDone', 'myNotes'].forEach(function (k) { if (e[k] !== undefined) m[k] = e[k]; });
+      m._edited = Object.keys(e).some(function (k) { return k !== 'notifiedFor' && k !== 'updatedAt'; });
+      m._updatedAt = e.updatedAt || '';
+      return m;
+    });
+  }
+  function saveEdit(name, patch) {
+    var edits = read(EDITS, {});
+    edits[name] = Object.assign({}, edits[name] || {}, patch, { updatedAt: new Date().toISOString() });
+    localStorage.setItem(EDITS, JSON.stringify(edits));
+  }
+  function liveNotPaying(c) { return c.siteLive === 'Yes' && ['Paying', 'Paused', 'Card failing', 'Bank late'].indexOf(c.status) === -1; }
+
+  function renderStats(all) {
+    var pay = all.filter(function (c) { return c.status === 'Paying'; });
+    $('sMrr').textContent = money(pay.reduce(function (t, c) { return t + (Number(c.monthly) || Number(c.price) || 0); }, 0));
+    $('sPaying').textContent = pay.length;
+    $('sChase').textContent = all.filter(function (c) { return ['Card failing', 'Bank late', 'Bank stopped'].indexOf(c.status) !== -1; }).length;
+    var now = Date.now();
+    $('sFollow').textContent = all.filter(function (c) { return c.followUp && !c.followUpDone && Date.parse(c.followUp) <= now + 864e5; }).length;
+    var meta = read(META, {});
+    $('syncedLine').textContent = all.length ? (all.length + ' clients · checked against Stripe, ANZ and Gmail ' + (meta.builtAt ? fmtDate(meta.builtAt) : '') + '. Your edits save and sync.') : 'No client data yet.';
+  }
+
+  function renderFollow(all) {
+    var box = $('followList'); box.replaceChildren();
+    var fu = all.filter(function (c) { return c.followUp && !c.followUpDone; }).sort(function (a, b) { return a.followUp.localeCompare(b.followUp); });
+    if (!fu.length) { box.append(el('div', 'empty', 'No follow-ups set. Open a client and pick a follow-up time, and your phone will be reminded.')); return; }
+    var now = Date.now();
+    fu.forEach(function (c) {
+      var r = el('div', 'fu' + (Date.parse(c.followUp) <= now ? ' over' : ''));
+      r.append(el('div', 'when', fmtWhen(c.followUp)));
+      var m = el('div', 'row-main'); m.append(el('div', 'row-title', c.client)); if (c.nextStep) m.append(el('div', 'row-meta', c.nextStep));
+      r.append(m);
+      r.addEventListener('click', function () { open = c.client; filter = ''; q = ''; $('q').value = ''; render(); var t = document.querySelector('[data-name="' + CSS.escape(c.client) + '"]'); if (t) t.scrollIntoView({ block: 'center' }); });
+      box.append(r);
+    });
+  }
+
+  function renderChips() {
+    var box = $('chips');
+    if (!box.childElementCount) {
+      ['All'].concat(FILTERS).forEach(function (f) {
+        var b = el('button', 'chip', f); b.type = 'button'; b.dataset.f = f === 'All' ? '' : f;
+        b.addEventListener('click', function () { filter = b.dataset.f; render(); });
+        box.append(b);
+      });
+    }
+    box.querySelectorAll('.chip').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.f === filter)); });
+  }
+
+  function detail(c) {
+    var d = el('div', 'detail');
+    var kv = el('dl', 'kv');
+    function add(k, v, href) { if (!v) return; kv.append(el('dt', '', k)); var dd = el('dd'); if (href) { var a = el('a', '', v); a.href = href; if (/^https?:/.test(href)) { a.target = '_blank'; a.rel = 'noopener'; } dd.append(a); } else dd.textContent = v; kv.append(dd); }
+    add('Contact', c.contact);
+    (c.phone || '').split(', ').filter(Boolean).forEach(function (p) { add('Phone', p, 'tel:' + p.replace(/\s/g, '')); });
+    var em = c.email || c.siteEmail; (em || '').split(', ').filter(Boolean).slice(0, 2).forEach(function (e) { add('Email', e, 'mailto:' + e); });
+    if (c.site) add('Website', c.site + (c.siteLive === 'Yes' ? ' (live)' : c.siteLive === 'No' ? ' (down)' : ''), 'https://' + c.site.replace(/^https?:\/\//, ''));
+    add('Location', c.location);
+    add('Pays by', c.via && c.via !== '-' ? c.via : '');
+    add('Per month', money(c.monthly || c.price));
+    add('Last paid', fmtDate(c.lastPaid));
+    add('Owed since', fmtDate(c.owedSince));
+    add('Sheet says', c.sheetSays);
+    add('Emails', c.note);
+    d.append(kv);
+
+    var st = el('label', 'fld', 'Status'); var sel = el('select');
+    STATUSES.concat(STATUSES.indexOf(c.status) === -1 ? [c.status] : []).forEach(function (s) { var o = el('option', '', s); o.value = s; if (s === c.status) o.selected = true; sel.append(o); });
+    st.append(sel);
+    var ns = el('label', 'fld', 'Next step'); var nsI = el('input'); nsI.type = 'text'; nsI.value = c.nextStep || ''; ns.append(nsI);
+    var fu = el('label', 'fld', 'Follow up on (your phone gets a reminder)'); var fuI = el('input'); fuI.type = 'datetime-local'; fuI.value = (c.followUp || '').slice(0, 16); fu.append(fuI);
+    var mn = el('label', 'fld', 'My notes'); var mnI = el('textarea'); mnI.value = c.myNotes || ''; mn.append(mnI);
+    d.append(st, ns, fu, mn);
+
+    var btns = el('div', 'btns'); var save = el('button', 'btn', 'Save'); save.type = 'button';
+    var done = el('button', 'btn ghost', c.followUp && !c.followUpDone ? 'Follow-up done' : 'Close'); done.type = 'button';
+    var msg = el('span', 'saved', '');
+    save.addEventListener('click', function () {
+      var patch = { status: sel.value, nextStep: nsI.value.trim(), myNotes: mnI.value };
+      var newFu = fuI.value || '';
+      if (newFu !== (c.followUp || '').slice(0, 16)) { patch.followUp = newFu; patch.followUpDone = false; }
+      saveEdit(c.client, patch); msg.textContent = 'Saved'; setTimeout(render, 600);
+    });
+    done.addEventListener('click', function () {
+      if (c.followUp && !c.followUpDone) saveEdit(c.client, { followUpDone: true });
+      open = null; render();
+    });
+    btns.append(save, done, msg);
+    d.append(btns);
+    return d;
+  }
+
+  function render() {
+    var all = merged();
+    renderStats(all); renderFollow(all); renderChips();
+    var rows = all.filter(function (c) {
+      if (filter === 'Follow-up set' && !(c.followUp && !c.followUpDone)) return false;
+      if (filter === 'Live, not paying' && !liveNotPaying(c)) return false;
+      if (filter === 'Edited' && !c._edited) return false;
+      if (filter && ['Follow-up set', 'Live, not paying', 'Edited'].indexOf(filter) === -1 && c.status !== filter) return false;
+      if (q && Object.keys(c).map(function (k) { return c[k]; }).join(' ').toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    }).sort(function (a, b) { return a.client.localeCompare(b.client); });
+    $('count').textContent = rows.length + ' shown';
+    var ul = $('list'); ul.replaceChildren();
+    rows.forEach(function (c) {
+      var li = el('li', 'row'); li.dataset.name = c.client;
+      var head = el('div', 'row-head'); head.tabIndex = 0; head.setAttribute('role', 'button'); head.setAttribute('aria-expanded', String(open === c.client));
+      var main = el('div', 'row-main'); main.append(el('div', 'row-title', c.client));
+      var meta = [c.via && c.via !== '-' ? c.via : '', c.lastPaid ? 'paid ' + fmtDate(c.lastPaid) : '', c.location].filter(Boolean).join(' · ');
+      var m = el('div', 'row-meta', meta);
+      if (c._edited) { m.append(document.createTextNode(meta ? ' · ' : '')); m.append(el('span', 'edited', 'edited')); }
+      main.append(m);
+      head.append(main, el('span', 'amt', money(c.monthly || c.price)), el('span', 'pill ' + (TONE[c.status] || 'p-mute'), c.status));
+      function toggle() { open = open === c.client ? null : c.client; render(); }
+      head.addEventListener('click', toggle);
+      head.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+      li.append(head);
+      if (open === c.client) li.append(detail(c));
+      ul.append(li);
+    });
+  }
+
+  $('q').addEventListener('input', function (e) { q = e.target.value.toLowerCase(); render(); });
+  window.addEventListener('storage', function (e) { if (!e.key || e.key.indexOf('clients:') === 0) render(); });
+  render();
+  if (window.initCloudSync) window.initCloudSync({ appKey: 'clients', syncedPrefixes: ['clients:'], onApplied: render });
+})();
+</script>
+</body>
+</html>
