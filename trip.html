@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<script src="/api/config"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<title>Trip · Dashboard</title>
+
+<!-- Trip page: accounts, bookings, to-dos and the route, mirrored from
+     the "Finn HQ" planner. Nothing personal lives in this file — the
+     data sits in localStorage under the `trip:` prefix and syncs through
+     the `trip` row in app_state like every other page. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<script src="sync.js"></script>
+<script src="topbar.js" defer></script>
+
+<style>
+:root {
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger:  #FF6B6B;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: #050506;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  min-height: 100vh; position: relative; overflow-x: hidden;
+  padding: max(28px, env(safe-area-inset-top)) 20px 60px;
+}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background:
+    radial-gradient(circle at 82% 14%, rgba(224, 118, 88, 0.16), transparent 45%),
+    radial-gradient(circle at 18% 90%, rgba(180, 180, 200, 0.06), transparent 50%);
+  filter: blur(40px); pointer-events: none; z-index: -2;
+  animation: drift 36s ease-in-out infinite alternate;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px; pointer-events: none; z-index: -1;
+}
+@keyframes drift { 0% { transform: translate3d(0,0,0); } 100% { transform: translate3d(-22px, 14px, 0); } }
+@media (prefers-reduced-motion: reduce) { body::before { animation: none; } }
+
+.page { max-width: 760px; margin: 0 auto; }
+
+.dash-title {
+  margin: 0 0 4px; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
+  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.dash-sub { margin: 0 0 18px; font-size: 12px; color: var(--text-tertiary); }
+@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+
+.section { margin-top: 8px; }
+.section-title {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+}
+.section-title::before { content: ''; width: 18px; height: 1px; background: var(--text-tertiary); opacity: 0.6; }
+.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent); }
+
+.gm-card {
+  position: relative; background: rgba(255, 255, 255, 0.04); border-radius: 16px;
+  padding: 20px; margin-bottom: 14px;
+  backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45); overflow: hidden;
+}
+.gm-eyebrow {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary); margin-bottom: 6px;
+}
+.hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.hero-num {
+  font-size: 56px; font-weight: 700; font-variant-numeric: tabular-nums;
+  letter-spacing: -0.05em; color: var(--text-primary); line-height: 0.95;
+}
+.hero-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase;
+  color: var(--text-tertiary); margin-left: 6px;
+}
+.hero-trip { font-size: 13px; color: var(--text-secondary); text-align: right; line-height: 1.5; }
+.hero-trip b { color: var(--text-primary); font-weight: 600; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-top: 18px; }
+.stat { background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 14px; }
+.stat-num {
+  font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em; color: var(--text-primary); line-height: 1;
+}
+.stat-label {
+  margin-top: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-tertiary);
+}
+
+/* Rows shared by money, bookings and to-dos */
+.list { list-style: none; margin: 0; padding: 0; }
+.row {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 14px; margin-bottom: 6px;
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+}
+.row-main { flex: 1; min-width: 0; }
+.row-title { font-size: 14px; color: var(--text-primary); line-height: 1.35; overflow-wrap: anywhere; }
+.row-meta { margin-top: 3px; font-size: 12px; color: var(--text-tertiary); line-height: 1.45; overflow-wrap: anywhere; }
+.row-note { margin-top: 4px; font-size: 12px; color: var(--text-secondary); line-height: 1.45; overflow-wrap: anywhere; }
+.mono { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); overflow-wrap: anywhere; }
+.amount {
+  font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--text-primary); white-space: nowrap; text-align: right;
+}
+.amount.neg { color: var(--danger); }
+.amount-sub { display: block; font-size: 10.5px; font-weight: 600; color: var(--text-tertiary); letter-spacing: 0.04em; margin-top: 3px; }
+.empty-state { text-align: center; font-size: 12px; font-style: italic; color: var(--text-tertiary); padding: 14px 0; }
+
+/* Status pill — tap to move a booking along */
+.pill {
+  flex-shrink: 0; min-width: 74px; padding: 6px 10px; border-radius: 999px;
+  font-family: inherit; font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04);
+  color: var(--text-tertiary); cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.pill.booked { color: var(--success); border-color: rgba(107,227,164,0.35); background: rgba(107,227,164,0.08); }
+.pill.topay  { color: var(--warning); border-color: rgba(242,192,99,0.35);  background: rgba(242,192,99,0.08); }
+.pill:focus-visible, .gm-check:focus-visible, .gm-add:focus-visible, .gm-ghost:focus-visible,
+.del:focus-visible, summary:focus-visible { outline: 2px solid var(--success); outline-offset: 2px; }
+
+/* To-dos */
+.gm-check {
+  appearance: none; -webkit-appearance: none;
+  width: 22px; height: 22px; flex-shrink: 0; margin: 0;
+  border: 1.5px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.28); border-radius: 7px;
+  position: relative; cursor: pointer; transition: background 0.2s, border-color 0.2s, box-shadow 0.25s;
+}
+.gm-check:checked { background: var(--success); border-color: var(--success); box-shadow: 0 0 12px rgba(107,227,164,0.40); }
+.gm-check:checked::after {
+  content: ''; position: absolute; left: 6px; top: 2px; width: 6px; height: 11px;
+  border: solid #0A0A0B; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
+}
+.row.done { opacity: 0.45; }
+.row.done .row-title { text-decoration: line-through; text-decoration-color: rgba(255,255,255,0.4); }
+.due {
+  flex-shrink: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-tertiary); padding: 4px 8px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.due.now { color: var(--warning); border-color: rgba(242,192,99,0.35); }
+.del {
+  border: 0; background: transparent; color: var(--text-tertiary);
+  font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; opacity: 0.5;
+}
+.del:hover { color: var(--danger); opacity: 1; }
+
+.input-wrap {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.06);
+}
+.gm-input {
+  flex: 1; min-width: 0; padding: 11px 14px;
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: rgba(0,0,0,0.28);
+  color: var(--text-primary); font-family: inherit; font-size: 16px; outline: none;
+}
+.gm-input.short { flex: 0 0 92px; }
+.gm-input::placeholder { color: var(--text-tertiary); }
+.gm-input:focus { border-color: rgba(255,255,255,0.28); }
+.gm-add {
+  padding: 11px 20px; border: 0; border-radius: 12px;
+  background: linear-gradient(180deg, #FFFFFF 0%, #E8E5DD 100%);
+  color: #0A0A0B; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.gm-ghost {
+  margin-top: 8px; padding: 9px 14px; border: 1px solid rgba(255,255,255,0.10); border-radius: 12px;
+  background: rgba(255,255,255,0.04); color: var(--text-secondary);
+  font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+
+/* Route */
+.stop {
+  border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.035);
+  border-radius: 12px; margin-bottom: 6px;
+}
+.stop summary {
+  list-style: none; cursor: pointer; padding: 12px 14px;
+  display: flex; align-items: center; gap: 12px; -webkit-tap-highlight-color: transparent;
+}
+.stop summary::-webkit-details-marker { display: none; }
+.stop-flag { font-size: 22px; line-height: 1; flex-shrink: 0; }
+.stop-name { flex: 1; min-width: 0; }
+.stop-tag {
+  flex-shrink: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 4px 8px; border-radius: 999px; color: var(--success);
+  border: 1px solid rgba(107,227,164,0.35); background: rgba(107,227,164,0.08);
+}
+.stop-chev { color: var(--text-tertiary); font-size: 12px; transition: transform 0.2s; }
+.stop[open] .stop-chev { transform: rotate(90deg); }
+.stop-body { padding: 0 14px 14px; font-size: 13px; line-height: 1.55; color: var(--text-secondary); }
+.stop-body h4 {
+  margin: 14px 0 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--text-tertiary);
+}
+.stop-body ul { margin: 0; padding-left: 18px; }
+.stop-body li { margin-bottom: 4px; }
+.facts { display: grid; grid-template-columns: 96px 1fr; gap: 6px 12px; margin-top: 12px; }
+.facts dt { font-size: 11px; font-weight: 600; color: var(--text-tertiary); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+
+.foot { margin: 18px 0 0; font-size: 11.5px; color: var(--text-tertiary); line-height: 1.5; text-align: center; }
+
+@media (max-width: 480px) {
+  body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
+  .gm-card { padding: 16px; }
+  .hero-num { font-size: 48px; }
+  .hero-trip { text-align: left; }
+  .facts { grid-template-columns: 1fr; gap: 2px; }
+  .facts dd { margin-bottom: 8px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1 class="dash-title">Trip</h1>
+  <p class="dash-sub" id="syncedLine">Waiting for data…</p>
+
+  <div class="gm-card">
+    <div class="hero">
+      <div>
+        <div class="gm-eyebrow" id="heroEyebrow">Countdown</div>
+        <div><span class="hero-num" id="heroNum">–</span><span class="hero-label" id="heroLabel"></span></div>
+      </div>
+      <div class="hero-trip" id="heroTrip"></div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-num" id="statBookings">–</div><div class="stat-label">Bookings to sort</div></div>
+      <div class="stat"><div class="stat-num" id="statTodos">–</div><div class="stat-label">To-dos left</div></div>
+      <div class="stat"><div class="stat-num" id="statMrr">–</div><div class="stat-label">MRR ex GST</div></div>
+      <div class="stat"><div class="stat-num" id="statPay">–</div><div class="stat-label">Take-home / wk</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">To do</div>
+    <div class="gm-card">
+      <ul class="list" id="todoList"></ul>
+      <button class="gm-ghost" id="todoMoreToggle" type="button" hidden></button>
+      <div class="input-wrap">
+        <input class="gm-input" id="todoInput" type="text" placeholder="Add a to-do…" autocomplete="off" aria-label="New to-do">
+        <input class="gm-input short" id="todoDue" type="text" placeholder="When" autocomplete="off" aria-label="When it's due">
+        <button class="gm-add" id="todoAdd" type="button">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Bookings</div>
+    <div class="gm-card">
+      <ul class="list" id="bookingList"></ul>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Money</div>
+    <div class="gm-card">
+      <ul class="list" id="accountList"></ul>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Route</div>
+    <div class="gm-card" id="routeList"></div>
+  </div>
+
+  <p class="foot">Tap a booking's status to move it along. Ticks, new to-dos and status changes save here and sync to your other devices.</p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var K = {
+    accounts: 'trip:accounts', bookings: 'trip:bookings', todos: 'trip:todos',
+    route: 'trip:route', biz: 'trip:biz', meta: 'trip:meta'
+  };
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var STATUS = ['tobook', 'topay', 'booked'];
+  var STATUS_LABEL = { tobook: 'To book', topay: 'To pay', booked: 'Booked' };
+  var KIND_ORDER = ['Bank', 'Savings', 'Stripe', 'Wise', 'Cash', 'Other'];
+  var TODO_PREVIEW = 8;
+  var showAll = false;
+
+  function load(k, fallback) {
+    try { var v = JSON.parse(localStorage.getItem(k)); return v == null ? fallback : v; }
+    catch (e) { return fallback; }
+  }
+  function save(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null && text !== '') e.textContent = text;
+    return e;
+  }
+  function money(n, cur) {
+    if (n == null || n === '' || isNaN(Number(n))) return '';
+    try { return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: cur || 'NZD' }).format(Number(n)); }
+    catch (e) { return '$' + Number(n).toFixed(2); }
+  }
+  function wholeMoney(n) {
+    if (n == null || isNaN(Number(n))) return '–';
+    return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD', maximumFractionDigits: 0 }).format(Number(n));
+  }
+  function parseDay(s) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s || '');
+    return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+  }
+  function fmtDay(d) { return d ? d.getDate() + ' ' + MONTHS[d.getMonth()] : ''; }
+  function fmtStamp(iso) { var d = iso ? new Date(iso) : null; return d && !isNaN(d) ? fmtDay(d) : ''; }
+  function today() { var n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
+  function dayDiff(a, b) { return Math.round((a - b) / 864e5); }
+  function byOrder(a, b) { return (Number(a.order) || 0) - (Number(b.order) || 0); }
+
+  /* ---------- hero + stats ---------- */
+  function renderHero() {
+    var meta = load(K.meta, {});
+    var route = load(K.route, []).slice().sort(byOrder);
+    var bookings = load(K.bookings, []);
+    var todos = load(K.todos, []);
+    var biz = load(K.biz, {});
+
+    $('syncedLine').textContent = meta.syncedAt
+      ? 'Synced from Finn HQ on ' + fmtStamp(meta.syncedAt)
+      : 'Nothing synced yet. Ask Claude to sync Finn HQ.';
+
+    var dep = meta.departure ? new Date(meta.departure) : (route[0] ? parseDay(route[0].start) : null);
+    var last = route.length ? parseDay(route[route.length - 1].end) : null;
+    var num = '–', label = '', eyebrow = 'Countdown';
+    if (dep && !isNaN(dep)) {
+      var depDay = new Date(dep.getFullYear(), dep.getMonth(), dep.getDate());
+      var diff = dayDiff(depDay, today());
+      if (diff > 0) { num = String(diff); label = diff === 1 ? 'day to go' : 'days to go'; }
+      else if (diff === 0) { num = '0'; label = 'flying today'; }
+      else if (!last || today() <= last) { num = String(1 - diff); label = 'days in'; eyebrow = 'On the road'; }
+      else { num = '✓'; label = 'trip done'; eyebrow = 'Home'; }
+    }
+    $('heroEyebrow').textContent = eyebrow;
+    $('heroNum').textContent = num;
+    $('heroLabel').textContent = label;
+
+    var trip = $('heroTrip');
+    trip.textContent = '';
+    if (dep && !isNaN(dep)) {
+      var line1 = el('div');
+      line1.append('Leave ', el('b', '', fmtDay(dep)));
+      trip.append(line1);
+    }
+    if (route.length) {
+      var line2 = el('div');
+      line2.append(route.length + ' stops, home ', el('b', '', fmtDay(last)));
+      trip.append(line2);
+    }
+
+    $('statBookings').textContent = bookings.filter(function (b) { return b.status !== 'booked'; }).length;
+    $('statTodos').textContent = todos.filter(function (t) { return !t.done; }).length;
+    $('statMrr').textContent = biz.mrr != null ? wholeMoney(biz.mrr) : '–';
+    $('statPay').textContent = biz.takeHomeWeekly != null ? wholeMoney(biz.takeHomeWeekly) : '–';
+  }
+
+  /* ---------- to-dos ---------- */
+  function todoSort(a, b) {
+    if (!!a.done !== !!b.done) return a.done ? 1 : -1;
+    return byOrder(a, b);
+  }
+  function renderTodos() {
+    var list = $('todoList');
+    var todos = load(K.todos, []);
+    list.textContent = '';
+    var open = todos.filter(function (t) { return !t.done; }).sort(todoSort);
+    var done = todos.filter(function (t) { return t.done; }).sort(todoSort);
+    var shown = showAll ? open.concat(done) : open.slice(0, TODO_PREVIEW);
+    var hiddenCount = open.length + done.length - shown.length;
+
+    if (!todos.length) list.append(el('li', 'empty-state', 'No to-dos yet.'));
+    else if (!shown.length) list.append(el('li', 'empty-state', 'All done.'));
+
+    shown.forEach(function (t) {
+      var li = el('li', 'row' + (t.done ? ' done' : ''));
+      li.style.alignItems = 'center';
+      var cb = el('input', 'gm-check');
+      cb.type = 'checkbox';
+      cb.checked = !!t.done;
+      cb.setAttribute('aria-label', 'Done: ' + t.text);
+      cb.addEventListener('change', function () { updateTodo(t.id, { done: cb.checked }); });
+      var main = el('div', 'row-main');
+      main.append(el('div', 'row-title', t.text));
+      li.append(cb, main);
+      if (t.due) li.append(el('span', 'due' + (/^now$/i.test(t.due) ? ' now' : ''), t.due));
+      var del = el('button', 'del', '×');
+      del.type = 'button';
+      del.setAttribute('aria-label', 'Delete: ' + t.text);
+      del.addEventListener('click', function () {
+        save(K.todos, load(K.todos, []).filter(function (x) { return x.id !== t.id; }));
+        render();
+      });
+      li.append(del);
+      list.append(li);
+    });
+
+    var toggle = $('todoMoreToggle');
+    toggle.hidden = !showAll && hiddenCount === 0 || showAll && open.length + done.length <= TODO_PREVIEW;
+    toggle.textContent = showAll ? 'Show less' : 'Show ' + hiddenCount + ' more';
+  }
+  function updateTodo(id, patch) {
+    var todos = load(K.todos, []);
+    todos.forEach(function (t) { if (t.id === id) Object.assign(t, patch); });
+    save(K.todos, todos);
+    render();
+  }
+  function addTodo() {
+    var text = $('todoInput').value.trim();
+    if (!text) return;
+    var todos = load(K.todos, []);
+    var minOrder = todos.reduce(function (m, t) { return Math.min(m, Number(t.order) || 0); }, 0);
+    todos.push({ id: 't' + Date.now(), text: text, due: $('todoDue').value.trim(), done: false, order: minOrder - 1 });
+    save(K.todos, todos);
+    $('todoInput').value = '';
+    $('todoDue').value = '';
+    render();
+  }
+
+  /* ---------- bookings ---------- */
+  function renderBookings() {
+    var list = $('bookingList');
+    var bookings = load(K.bookings, []).slice().sort(byOrder);
+    list.textContent = '';
+    if (!bookings.length) { list.append(el('li', 'empty-state', 'No bookings yet.')); return; }
+    bookings.forEach(function (b) {
+      var li = el('li', 'row');
+      var status = STATUS.indexOf(b.status) === -1 ? 'tobook' : b.status;
+      var pill = el('button', 'pill ' + status, STATUS_LABEL[status]);
+      pill.type = 'button';
+      pill.setAttribute('aria-label', b.what + ': ' + STATUS_LABEL[status] + '. Tap to change.');
+      pill.addEventListener('click', function () {
+        var next = STATUS[(STATUS.indexOf(status) + 1) % STATUS.length];
+        var all = load(K.bookings, []);
+        all.forEach(function (x) { if (x.id === b.id) x.status = next; });
+        save(K.bookings, all);
+        render();
+      });
+      var main = el('div', 'row-main');
+      main.append(el('div', 'row-title', b.what));
+      var meta = [b.when, money(b.cost, b.currency)].filter(Boolean).join(' · ');
+      if (meta) main.append(el('div', 'row-meta', meta));
+      if (b.note) main.append(el('div', 'row-note', b.note));
+      if (b.ref) main.append(el('div', 'mono', 'Ref ' + b.ref));
+      li.append(pill, main);
+      list.append(li);
+    });
+  }
+
+  /* ---------- money ---------- */
+  function renderAccounts() {
+    var list = $('accountList');
+    var accounts = load(K.accounts, []).slice().sort(function (a, b) {
+      var ka = KIND_ORDER.indexOf(a.kind), kb = KIND_ORDER.indexOf(b.kind);
+      return (ka === -1 ? 99 : ka) - (kb === -1 ? 99 : kb) || String(a.name).localeCompare(String(b.name));
+    });
+    list.textContent = '';
+    if (!accounts.length) { list.append(el('li', 'empty-state', 'No accounts yet.')); return; }
+    accounts.forEach(function (a) {
+      var li = el('li', 'row');
+      var main = el('div', 'row-main');
+      main.append(el('div', 'row-title', a.name));
+      if (a.note) main.append(el('div', 'row-note', a.note));
+      var amt = el('div', 'amount' + (Number(a.balance) < 0 ? ' neg' : ''), money(a.balance, a.currency));
+      var when = fmtStamp(a.updatedAt);
+      if (when) amt.append(el('span', 'amount-sub', when));
+      li.append(main, amt);
+      list.append(li);
+    });
+  }
+
+  /* ---------- route ---------- */
+  function renderRoute() {
+    var wrap = $('routeList');
+    var route = load(K.route, []).slice().sort(byOrder);
+    wrap.textContent = '';
+    if (!route.length) { wrap.append(el('div', 'empty-state', 'No route yet.')); return; }
+
+    var t = today(), currentIdx = -1, nextIdx = -1;
+    route.forEach(function (r, i) {
+      var s = parseDay(r.start), e = parseDay(r.end);
+      if (s && e && t >= s && t < e && currentIdx === -1) currentIdx = i;
+      if (s && s > t && nextIdx === -1) nextIdx = i;
+    });
+
+    route.forEach(function (r, i) {
+      var s = parseDay(r.start), e = parseDay(r.end);
+      var d = el('details', 'stop');
+      if (i === currentIdx) d.open = true;
+      var sum = el('summary');
+      sum.append(el('span', 'stop-flag', r.flag || '📍'));
+      var name = el('div', 'stop-name');
+      name.append(el('div', 'row-title', r.country));
+      var days = s && e ? dayDiff(e, s) : null;
+      var dates = s ? fmtDay(s) + (e ? ' – ' + fmtDay(e) : '') + (days ? ' · ' + days + ' days' : '') : '';
+      if (dates) name.append(el('div', 'row-meta', dates));
+      sum.append(name);
+      if (i === currentIdx) sum.append(el('span', 'stop-tag', 'Now'));
+      else if (currentIdx === -1 && i === nextIdx) sum.append(el('span', 'stop-tag', 'Next'));
+      sum.append(el('span', 'stop-chev', '▸'));
+      d.append(sum);
+
+      var body = el('div', 'stop-body');
+      if (r.why) body.append(el('p', '', r.why));
+      addList(body, 'Plan', r.do, function (x) { return x; });
+      addList(body, 'Events', r.events, function (x) {
+        return [x.name, x.when].filter(Boolean).join(' · ') + (x.note ? ': ' + x.note : '');
+      });
+      addList(body, 'Top picks', r.adventures, function (x) {
+        return [x.emoji, x.name].filter(Boolean).join(' ') + (x.nzd ? ' · ' + wholeMoney(x.nzd) : '');
+      });
+      var facts = el('dl', 'facts');
+      [['Visa', r.visa], ['Getting there', r.getThere], ['Stay', r.stay], ['Time zone', r.tz]].forEach(function (f) {
+        if (!f[1]) return;
+        facts.append(el('dt', '', f[0]), el('dd', '', f[1]));
+      });
+      if (facts.childNodes.length) body.append(facts);
+      d.append(body);
+      wrap.append(d);
+    });
+  }
+  function addList(parent, title, items, fmt) {
+    if (!Array.isArray(items) || !items.length) return;
+    parent.append(el('h4', '', title));
+    var ul = el('ul');
+    items.forEach(function (x) { var text = fmt(x); if (text) ul.append(el('li', '', text)); });
+    parent.append(ul);
+  }
+
+  function render() {
+    renderHero();
+    renderTodos();
+    renderBookings();
+    renderAccounts();
+    renderRoute();
+  }
+
+  $('todoAdd').addEventListener('click', addTodo);
+  $('todoInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') addTodo(); });
+  $('todoDue').addEventListener('keydown', function (e) { if (e.key === 'Enter') addTodo(); });
+  $('todoMoreToggle').addEventListener('click', function () { showAll = !showAll; renderTodos(); });
+  window.addEventListener('storage', function (e) { if (!e.key || e.key.indexOf('trip:') === 0) render(); });
+
+  render();
+
+  if (window.initCloudSync) {
+    window.initCloudSync({ appKey: 'trip', syncedPrefixes: ['trip:'], onApplied: render });
+  }
+})();
+</script>
+</body>
+</html>

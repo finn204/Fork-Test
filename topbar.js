@@ -195,6 +195,10 @@ body.topbar-modal-open {
     <span class="bottombar-tab-icon">⏰</span>
     <span>Remind</span>
   </a>
+  <a href="trip.html" class="bottombar-tab" data-page="trip">
+    <span class="bottombar-tab-icon">✈️</span>
+    <span>Trip</span>
+  </a>
 </nav>
 `;
 
@@ -217,6 +221,7 @@ body.topbar-modal-open {
     if (p.endsWith('health.html')) return 'health';
     if (p.endsWith('gym.html')) return 'fitness';
     if (p.endsWith('reminders.html')) return 'reminders';
+    if (p.endsWith('trip.html')) return 'trip';
     return 'main'; // index.html, /, or anything else falls back to main
   }
 
