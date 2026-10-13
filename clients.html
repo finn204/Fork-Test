@@ -87,7 +87,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 
   <div class="gm-card">
     <div class="stat-grid">
-      <div class="stat"><div class="stat-num" id="sMrr">–</div><div class="stat-label">Coming in / mo (incl GST)</div></div>
+      <div class="stat"><div class="stat-num" id="sMrr">–</div><div class="stat-label">Coming in / mo (ex GST)</div></div>
       <div class="stat"><div class="stat-num" id="sPaying">–</div><div class="stat-label">Paying clients</div></div>
       <div class="stat"><div class="stat-num" id="sChase">–</div><div class="stat-label">To chase</div></div>
       <div class="stat"><div class="stat-num" id="sFollow">–</div><div class="stat-label">Follow-ups due</div></div>
@@ -117,6 +117,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   function read(k, d) { try { var v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } }
   function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
   function money(v) { return v ? '$' + Math.round(v).toLocaleString('en-NZ') : ''; }
+  // Amounts are stored as charged (incl GST); Finn reads them ex GST.
+  function exGst(v) { return (Number(v) || 0) / 1.15; }
   function fmtDate(s) { if (!s) return ''; var d = new Date(s.length > 10 ? s : s + 'T00:00'); return isNaN(d) ? s : d.toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' }); }
   function fmtWhen(s) { var d = new Date(s); if (isNaN(d)) return s; return d.toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' + d.toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit' }); }
 
@@ -141,7 +143,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 
   function renderStats(all) {
     var pay = all.filter(function (c) { return c.status === 'Paying'; });
-    $('sMrr').textContent = money(pay.reduce(function (t, c) { return t + (Number(c.monthly) || Number(c.price) || 0); }, 0));
+    $('sMrr').textContent = money(exGst(pay.reduce(function (t, c) { return t + (Number(c.monthly) || Number(c.price) || 0); }, 0)));
     $('sPaying').textContent = pay.length;
     $('sChase').textContent = all.filter(function (c) { return ['Card failing', 'Bank late', 'Bank stopped'].indexOf(c.status) !== -1; }).length;
     var now = Date.now();
@@ -187,7 +189,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
     if (c.site) add('Website', c.site + (c.siteLive === 'Yes' ? ' (live)' : c.siteLive === 'No' ? ' (down)' : ''), 'https://' + c.site.replace(/^https?:\/\//, ''));
     add('Location', c.location);
     add('Pays by', c.via && c.via !== '-' ? c.via : '');
-    add('Per month', money(c.monthly || c.price));
+    add('Per month (ex GST)', money(exGst(c.monthly || c.price)));
     add('Last paid', fmtDate(c.lastPaid));
     add('Owed since', fmtDate(c.owedSince));
     add('Sheet says', c.sheetSays);
@@ -241,7 +243,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
       var m = el('div', 'row-meta', meta);
       if (c._edited) { m.append(document.createTextNode(meta ? ' · ' : '')); m.append(el('span', 'edited', 'edited')); }
       main.append(m);
-      head.append(main, el('span', 'amt', money(c.monthly || c.price)), el('span', 'pill ' + (TONE[c.status] || 'p-mute'), c.status));
+      head.append(main, el('span', 'amt', money(exGst(c.monthly || c.price))), el('span', 'pill ' + (TONE[c.status] || 'p-mute'), c.status));
       function toggle() { open = open === c.client ? null : c.client; render(); }
       head.addEventListener('click', toggle);
       head.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
