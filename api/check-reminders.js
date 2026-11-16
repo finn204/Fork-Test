@@ -363,7 +363,7 @@ async function buildMissionBody(supabase, today) {
 // Clean day check carries a one-tap button that spends the same
 // single-use token /api/tick already accepts.
 // ============================================================
-const MASTER_URL = 'https://claude.ai/artifact/6n7kEuDpbshQDfbzuewecW';
+const MASTER_URL = 'https://claude.ai/artifact/JHJKNyEVvRvb3qAAmETzmr';
 const LIFE_TYPES = new Set(['food-check', 'coffee-cutoff', 'clean-check', 'digest', 'callout']);
 async function sendNtfy(topic, item, body, token) {
   const msg = {
