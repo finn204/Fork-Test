@@ -365,10 +365,11 @@ async function buildMissionBody(supabase, today) {
 // ============================================================
 const MASTER_URL = 'https://claude.ai/artifact/JHJKNyEVvRvb3qAAmETzmr';
 const LIFE_TYPES = new Set(['food-check', 'coffee-cutoff', 'clean-check', 'digest', 'callout']);
+const MISSION_TYPES = new Set(['mission', 'stale-leads', 'client-followups']);
 async function sendNtfy(topic, item, body, token) {
   const msg = {
     topic, title: item.label || 'Reminder', message: body,
-    click: MASTER_URL + (LIFE_TYPES.has(item.type) ? '#life' : '#today'),
+    click: MASTER_URL + (LIFE_TYPES.has(item.type) ? '#life' : MISSION_TYPES.has(item.type) ? '#mission' : '#today'),
     tags: item.type === 'mission' ? ['fishing_pole_and_fish'] : item.type === 'clean-check' ? ['white_check_mark'] : [],
   };
   if (item.type === 'clean-check' && token) {
