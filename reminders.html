@@ -298,7 +298,8 @@ body::after {
     { id: 'callout',       time: '21:30', label: 'Straight Up',  type: 'callout',     enabled: true, lastFiredDate: null },
     { id: 'food-check',    time: '12:00', label: 'Food Log',     type: 'food-check',  repeatMins: 150, until: '21:00', enabled: true, lastFiredDate: null },
     { id: 'coffee-cutoff', time: '14:00', label: 'Coffee Cutoff', type: 'coffee-cutoff', enabled: true, lastFiredDate: null },
-    { id: 'clean-check',   time: '21:00', label: 'Clean Day',    type: 'clean-check', repeatMins: 60, until: '23:00', enabled: true, lastFiredDate: null }
+    { id: 'clean-check',   time: '21:00', label: 'Clean Day',    type: 'clean-check', repeatMins: 60, until: '23:00', enabled: true, lastFiredDate: null },
+    { id: 'mission-nudge', time: '10:00', label: "Today's Spots", type: 'mission', days: [1,2,3,4,5], repeatMins: 240, until: '15:00', enabled: true, lastFiredDate: null }
   ];
 
   var $ = function (id) { return document.getElementById(id); };

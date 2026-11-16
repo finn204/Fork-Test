@@ -337,6 +337,51 @@ async function buildCleanCheck(supabase, today) {
 }
 
 // ============================================================
+// A 'mission' reminder reads the 'mission' row that the Master
+// Dashboard (claude.ai) writes after every logged call: calls left
+// today, money on the line, next target's first name and the lead
+// drought. Counts only, no client contact details. Silent when the
+// row is from another day or every call is done.
+// ============================================================
+async function buildMissionBody(supabase, today) {
+  const { data: row } = await supabase.from('app_state').select('data').eq('key', 'mission').maybeSingle();
+  const m = row && row.data;
+  if (!m || m.date !== today) return null;
+  const left = Number(m.callsLeft) || 0;
+  if (!left) return null;
+  let body = `${left} spot${left === 1 ? '' : 's'} left today, $${Number(m.stakeMonthly) || 0}/mo on the line.`;
+  if (m.next) body += ` Next up: ${m.next}.`;
+  if (Number(m.droughtDays) >= 7) body += ` ${m.droughtDays} days since a new lead.`;
+  return body;
+}
+
+// ============================================================
+// ntfy: Finn dropped the installable app for the claude.ai Master
+// Dashboard, which cannot receive web push. Every reminder also goes
+// to his private ntfy topic (NTFY_TOPIC env var, never in this public
+// repo). Tapping it opens the right tab of the Master Dashboard; the
+// Clean day check carries a one-tap button that spends the same
+// single-use token /api/tick already accepts.
+// ============================================================
+const MASTER_URL = 'https://claude.ai/artifact/6n7kEuDpbshQDfbzuewecW';
+const LIFE_TYPES = new Set(['food-check', 'coffee-cutoff', 'clean-check', 'digest', 'callout']);
+async function sendNtfy(topic, item, body, token) {
+  const msg = {
+    topic, title: item.label || 'Reminder', message: body,
+    click: MASTER_URL + (LIFE_TYPES.has(item.type) ? '#life' : '#today'),
+    tags: item.type === 'mission' ? ['fishing_pole_and_fish'] : item.type === 'clean-check' ? ['white_check_mark'] : [],
+  };
+  if (item.type === 'clean-check' && token) {
+    msg.actions = [{ action: 'http', label: 'Clean day', url: 'https://fork-test-rose.vercel.app/api/tick', method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }), clear: true }];
+  }
+  try {
+    const r = await fetch('https://ntfy.sh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(msg) });
+    return r.ok;
+  } catch (e) { return false; }
+}
+
+// ============================================================
 // Auto reminder types are backfilled HERE, on the server, not only
 // when reminders.html happens to be opened. The whole point of these
 // is that he does not open the app, so a new type that waits for a
@@ -388,6 +433,7 @@ const AUTO_TYPES = [
   { id: 'coffee-cutoff', time: '14:00', label: 'Coffee Cutoff', type: 'coffee-cutoff' },
   { id: 'clean-check',   time: '21:00', label: 'Clean Day',     type: 'clean-check', repeatMins: 60, until: '23:00' },
   { id: 'client-followups', time: '07:00', label: 'Client follow-up', type: 'client-followups', repeatMins: 15, until: '21:30' },
+  { id: 'mission-nudge', time: '10:00', label: "Today's Spots", type: 'mission', days: [1, 2, 3, 4, 5], repeatMins: 240, until: '15:00' },
 ];
 
 // A type added now should not fire retroactively for a time that has
@@ -444,13 +490,14 @@ export default async function handler(req, res) {
 
     const { data: pushRow } = await supabase.from('app_state').select('data').eq('key', 'push_subscriptions').maybeSingle();
     const subs = (pushRow && pushRow.data && pushRow.data.subs) || [];
+    const ntfyTopic = process.env.NTFY_TOPIC;
 
     let sent = 0;
     /* Only items that actually went out — or that deliberately chose to
        stay silent — get stamped. Stamping on a failed send marks a
        notification delivered that never was, and it is gone for the day. */
     const handled = new Set();
-    if (subs.length) {
+    if (subs.length || ntfyTopic) {
       webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
       const deadEndpoints = new Set();
 
@@ -462,6 +509,7 @@ export default async function handler(req, res) {
         else if (item.type === 'food-check') body = await buildFoodCheckBody(supabase, today, currentTime);
         else if (item.type === 'coffee-cutoff') body = await buildCoffeeCutoffBody(supabase, today, currentTime);
         else if (item.type === 'clean-check') body = await buildCleanCheck(supabase, today);
+        else if (item.type === 'mission') body = await buildMissionBody(supabase, today);
         else if (item.type === 'client-followups') {
           const fu = await buildFollowupsBody(supabase, today, currentTime);
           body = fu ? fu.body : null;
@@ -499,6 +547,7 @@ export default async function handler(req, res) {
             : item.type === 'coffee-cutoff' ? '/caffeine.html'
             : item.type === 'stale-leads' ? '/business.html'
             : item.type === 'client-followups' ? '/clients.html'
+            : item.type === 'mission' ? '/index.html'
             : (item.type === 'digest' || item.type === 'callout') ? '/index.html'
             : '/reminders.html'
         });
@@ -506,7 +555,8 @@ export default async function handler(req, res) {
           try { await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, payload); return true; }
           catch (e) { if (e && (e.statusCode === 410 || e.statusCode === 404)) deadEndpoints.add(s.endpoint); return false; }
         }));
-        const okCount = results.filter(Boolean).length;
+        const ntfyOk = ntfyTopic ? await sendNtfy(ntfyTopic, item, body, token) : false;
+        const okCount = results.filter(Boolean).length + (ntfyOk ? 1 : 0);
         sent += okCount;
         if (okCount > 0) handled.add(item.id);
         if (okCount > 0 && item._followNames) await stampFollowups(supabase, item._followNames);
@@ -534,7 +584,8 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true, due: due.length, sent, stamped: handled.size, subs: subs.length,
       /* No subscription means every reminder today is going nowhere. */
-      warning: subs.length ? undefined : 'no push subscriptions — nothing can be delivered',
+      ntfy: Boolean(process.env.NTFY_TOPIC),
+      warning: (subs.length || process.env.NTFY_TOPIC) ? undefined : 'no push subscriptions or ntfy topic — nothing can be delivered',
     });
   } catch (e) {
     return res.status(500).json({ error: e && e.message ? e.message : String(e) });
