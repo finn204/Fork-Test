@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Master">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#9BEAF2">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<script src="/api/config"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Master Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@500;600;700;800&family=DM+Mono:wght@500&display=swap">
+<style>
+/* Layout: a bright lagoon day out. Sun ring + catch tally up top, the fish on the line in the middle, a yarn with Julia, then today's spots. One bright look in every theme. */
+:root{
+  --void:#E6FAF6; --deck:#D2F4EE; --plate:#FFFFFF; --plate-2:#F2FCFA; --edge:#C3ECE4; --edge-hi:#8FD9CC;
+  --ink:#0C2D3A; --ink-2:#3F6070; --dim:#6E8B96;
+  --arc:#0AA6A0; --arc-2:#07707A; --gold:#C46F00; --mango:#FFB321; --red:#E6455A; --go:#16924F;
+  --sky:#7FE3F0; --sand:#FFF4D6;
+  --f-hud:"Lilita One","Arial Rounded MT Bold",system-ui,sans-serif;
+  --f-body:"Nunito",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"DM Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:22px;
+  --shadow:0 2px 0 rgba(12,45,58,.06),0 18px 40px -22px rgba(7,112,122,.45);
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{background:linear-gradient(180deg,#9BEAF2 0%,#D6F7F2 280px,var(--void) 620px)}
+body{color:var(--ink);font:17px/1.5 var(--f-body);-webkit-font-smoothing:antialiased;min-height:100%}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:#9BEAF2}
+#bg{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.wrap{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 64px;display:flex;flex-direction:column;gap:20px}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:var(--arc-2)}
+:focus-visible{outline:3px solid var(--mango);outline-offset:3px;border-radius:10px}
+.lab{font:500 11.5px/1.2 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.num{font-variant-numeric:tabular-nums}
+
+/* top bar */
+.bar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between}
+.mark{display:flex;align-items:center;gap:12px}
+.mark .glyph{width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#FFE27A,var(--mango) 60%,#F28C00);box-shadow:0 0 0 5px rgba(255,179,33,.25),0 0 30px rgba(255,179,33,.6);display:grid;place-items:center}
+.mark .glyph i{display:none}
+.mark b{font:400 26px/1 var(--f-hud);letter-spacing:.04em;color:var(--ink)}
+.mark span{display:block;font:500 11px/1.3 var(--f-mono);color:var(--arc-2);letter-spacing:.12em;margin-top:4px}
+.sys{display:flex;gap:10px;flex-wrap:wrap;font:500 12.5px/1.2 var(--f-mono);color:var(--ink-2)}
+.sys>span{background:rgba(255,255,255,.75);border:1px solid var(--edge);padding:7px 11px;border-radius:999px}
+.sys em{font-style:normal;color:var(--go);font-weight:500}
+.sys .live::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--go);margin-right:7px;animation:blink 1.8s infinite}
+@keyframes blink{50%{opacity:.3}}
+
+/* briefing */
+.brief{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:end}
+.brief h1{margin:4px 0 0;font:400 clamp(38px,6vw,68px)/1 var(--f-hud);letter-spacing:.005em;text-wrap:balance;color:var(--ink)}
+.brief h1 span{color:var(--arc);text-shadow:3px 3px 0 var(--mango)}
+.say{margin:12px 0 0;font:600 clamp(17px,2vw,20px)/1.5 var(--f-body);color:var(--ink-2);max-width:60ch;min-height:3em}
+.say .cur{display:inline-block;width:10px;height:1.05em;background:var(--mango);border-radius:3px;vertical-align:-3px;margin-left:3px;animation:blink 1s steps(1) infinite}
+.voice{display:inline-flex;align-items:center;gap:9px;padding:13px 20px;border:0;border-radius:999px;background:var(--mango);color:var(--ink);font:400 17px/1 var(--f-hud);letter-spacing:.03em;box-shadow:0 5px 0 #D98A00}
+.voice:hover{transform:translateY(-1px)}
+.voice:active{transform:translateY(3px);box-shadow:0 2px 0 #D98A00}
+.voice svg{width:20px;height:20px}
+.voice[data-on="1"]{background:var(--arc);color:#fff;box-shadow:0 5px 0 var(--arc-2)}
+
+/* sun ring + stats */
+.hud{display:grid;grid-template-columns:240px minmax(0,1fr);gap:20px;align-items:center}
+.reactor{position:relative;width:240px;height:240px;max-width:100%}
+.reactor canvas{width:100%;height:100%;display:block}
+.reactor .core{position:absolute;inset:0;display:grid;place-items:center;text-align:center;pointer-events:none}
+.reactor .core b{display:block;font:400 48px/1 var(--f-hud);color:var(--ink)}
+.reactor .core span{font:500 11.5px/1.3 var(--f-mono);letter-spacing:.16em;color:var(--arc-2)}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.stat{padding:16px 18px;background:var(--plate);border:1px solid var(--edge);border-radius:var(--r);box-shadow:var(--shadow)}
+.stat b{display:block;font:400 clamp(30px,3.8vw,42px)/1.05 var(--f-hud);margin-top:6px;font-variant-numeric:tabular-nums;color:var(--ink)}
+.stat small{display:block;font-size:14px;color:var(--ink-2);margin-top:3px}
+.stat.gold{background:linear-gradient(160deg,#FFF6DC,#FFFFFF 70%)}
+.stat.gold b{color:var(--gold)}
+.stat.go{background:linear-gradient(160deg,#E1F8EA,#FFFFFF 70%)}
+.stat.go b{color:var(--go)}
+.xpwrap{grid-column:1/-1;padding:14px 18px;border-radius:var(--r);border:1px solid var(--edge);background:var(--plate);box-shadow:var(--shadow)}
+.xphead{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
+.xphead b{font:400 22px/1.2 var(--f-hud);color:var(--arc-2)}
+.xpbar{height:16px;margin-top:10px;background:var(--deck);border-radius:999px;position:relative;overflow:hidden}
+.xpbar i{position:absolute;inset:0 auto 0 0;border-radius:999px;background:linear-gradient(90deg,var(--arc),#3CD3A8 55%,var(--mango));transition:width .8s cubic-bezier(.2,.8,.2,1)}
+
+/* fish on the line */
+.lock{position:relative;padding:clamp(18px,3vw,30px);border-radius:28px;background:var(--plate);border:2px solid var(--arc);box-shadow:0 6px 0 var(--arc-2),0 30px 60px -30px rgba(7,112,122,.55)}
+.lock::before,.lock::after{content:none}
+.lock.alpha{border-color:var(--mango);box-shadow:0 6px 0 #D98A00,0 30px 60px -30px rgba(217,138,0,.55)}
+.lock-top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}
+.tagline{display:inline-flex;gap:9px;align-items:center;padding:7px 13px;border-radius:999px;background:rgba(10,166,160,.12);font:500 12.5px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--arc-2)}
+.tagline i{width:9px;height:9px;border-radius:50%;background:var(--arc);animation:blink 1.4s infinite}
+.alpha .tagline{background:rgba(255,179,33,.18);color:var(--gold)}.alpha .tagline i{background:var(--mango)}
+.reward{font:400 18px/1 var(--f-hud);color:var(--ink);padding:9px 14px;border-radius:999px;background:var(--mango);white-space:nowrap}
+.tgt{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:24px;margin-top:16px}
+.tgt h2{margin:0;font:400 clamp(36px,5.6vw,60px)/1 var(--f-hud);text-wrap:balance;color:var(--ink)}
+.tgt .biz{margin:8px 0 0;font:700 17px/1.3 var(--f-body);color:var(--ink-2)}
+.heat{margin-top:16px}
+.heat .row{display:flex;justify-content:space-between;font:500 12px/1 var(--f-mono);color:var(--ink-2);letter-spacing:.08em}
+.heat .meter{display:grid;grid-template-columns:repeat(20,1fr);gap:4px;margin-top:8px}
+.heat .meter span{height:14px;border-radius:5px;background:var(--deck)}
+.heat .meter span.on{background:var(--hc)}
+.intel{list-style:none;margin:18px 0 0;padding:0;display:flex;flex-direction:column;gap:9px}
+.intel li{display:grid;grid-template-columns:18px minmax(0,1fr);gap:10px;font-size:16.5px;color:var(--ink)}
+.intel li::before{content:"";width:10px;height:10px;margin-top:8px;border-radius:50%;background:var(--mango)}
+.obj{margin-top:18px;padding:14px 16px;border-radius:16px;background:#E3F7EA;font-weight:700}
+.obj .lab{color:var(--go);display:block;margin-bottom:4px}
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.comms{padding:14px 16px;border-radius:18px;background:var(--plate-2);border:1px solid var(--edge)}
+.phone{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;flex-wrap:wrap}
+.phone b{font:400 clamp(26px,3.2vw,34px)/1 var(--f-hud);letter-spacing:.02em;user-select:all;color:var(--arc-2)}
+.phone .none{font:700 15.5px/1.35 var(--f-body);color:var(--gold)}
+.mini{border:1px solid var(--edge-hi);border-radius:999px;background:var(--plate);padding:8px 13px;font:500 12.5px/1 var(--f-mono);letter-spacing:.04em;color:var(--arc-2)}
+.mini:hover{background:var(--deck)}
+.script{margin-top:8px;font:600 17px/1.55 var(--f-body);color:var(--ink);white-space:pre-wrap}
+.links{display:flex;flex-wrap:wrap;gap:8px}
+.links a{display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border-radius:999px;background:var(--deck);font:700 14px/1 var(--f-body);text-decoration:none;color:var(--arc-2)}
+.links a:hover{background:var(--edge)}
+.acts{margin-top:22px;border-top:2px dashed var(--edge);padding-top:18px}
+.acts .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:10px}
+.out{position:relative;padding:12px 14px;border:2px solid var(--edge);border-radius:16px;background:var(--plate);text-align:left;transition:transform .12s,border-color .12s}
+.out:hover{transform:translateY(-2px);border-color:var(--oc)}
+.out b{display:block;font:400 17px/1.2 var(--f-hud);color:var(--oc)}
+.out small{display:block;margin-top:4px;font:500 12px/1 var(--f-mono);color:var(--ink-2)}
+.done-banner{margin-top:18px;padding:14px 18px;border-radius:18px;background:#DDF6E7;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;font:400 19px/1.3 var(--f-hud);color:var(--go)}
+
+/* spots */
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.sec-h h3{margin:0;font:400 26px/1.2 var(--f-hud);color:var(--ink)}
+.queue{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-top:10px}
+.q{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px 14px;border-radius:18px;border:2px solid transparent;background:var(--plate);box-shadow:var(--shadow);text-align:left;width:100%}
+.q:hover{border-color:var(--edge-hi)}
+.q[aria-current="true"]{border-color:var(--arc);background:#E9FBF8}
+.q .code{font:500 12px/1 var(--f-mono);color:var(--dim)}
+.q .nm{font:400 18px/1.15 var(--f-hud);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.q .sb{font-size:13.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q .st{width:16px;height:16px;border-radius:50%;border:2px solid var(--edge-hi)}
+.q.won .st{background:var(--go);border-color:var(--go)}
+.q.soft .st{background:var(--mango);border-color:var(--mango)}
+.q.won .nm,.q.soft .nm{color:var(--ink-2)}
+.q.alpha .code{color:var(--gold)}
+.empty{padding:28px;border-radius:22px;border:2px dashed var(--edge-hi);text-align:center;color:var(--ink-2);background:rgba(255,255,255,.6)}
+.empty b{display:block;font:400 24px/1.3 var(--f-hud);color:var(--arc-2);margin-bottom:6px}
+
+/* catch flash */
+.flash{position:fixed;inset:0;z-index:50;display:grid;place-items:center;pointer-events:none;background:radial-gradient(circle,rgba(255,255,255,.75),rgba(255,255,255,0) 60%)}
+.flash div{text-align:center;animation:pop .9s cubic-bezier(.2,1.4,.3,1) both}
+.flash b{display:block;font:400 clamp(44px,9vw,104px)/1 var(--f-hud);color:var(--fc);text-shadow:4px 4px 0 var(--mango),0 0 0 #fff}
+.flash span{display:inline-block;margin-top:12px;padding:8px 16px;border-radius:999px;background:var(--ink);font:400 clamp(20px,3vw,30px)/1 var(--f-hud);color:var(--mango)}
+@keyframes pop{0%{transform:scale(.6) rotate(-4deg);opacity:0}30%{opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;padding:11px 18px;border-radius:999px;background:var(--ink);font:700 14px/1 var(--f-body);color:#fff}
+
+/* yarn with jarvis */
+.console{position:relative;border-radius:28px;background:var(--plate);border:1px solid var(--edge);box-shadow:var(--shadow);padding:clamp(16px,2.6vw,24px);display:flex;flex-direction:column;gap:12px}
+.console-h{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.console-h h3{margin:0;font:400 26px/1.2 var(--f-hud);display:flex;align-items:center;gap:10px;color:var(--ink)}
+.orb{width:16px;height:16px;border-radius:50%;background:var(--mango);box-shadow:0 0 0 4px rgba(255,179,33,.25)}
+.orb.busy{animation:blink .7s infinite}
+.toggle{display:inline-flex;align-items:center;gap:8px;font:500 12px/1 var(--f-mono);letter-spacing:.06em;color:var(--ink-2);background:var(--plate-2);border:1px solid var(--edge);border-radius:999px;padding:8px 12px}
+.toggle[aria-pressed="true"]{color:#fff;background:var(--arc);border-color:var(--arc)}
+.log{display:flex;flex-direction:column;gap:10px;max-height:min(52vh,460px);overflow-y:auto;overscroll-behavior:contain;padding-right:4px}
+.msg{max-width:min(720px,94%);padding:12px 16px;border-radius:20px;font-size:16.5px;line-height:1.5;overflow-wrap:anywhere;white-space:pre-wrap}
+.msg.me{align-self:flex-end;background:var(--arc);color:#fff;border-bottom-right-radius:6px}
+.msg.ai{align-self:flex-start;background:var(--sand);color:var(--ink);border-bottom-left-radius:6px}
+.msg .who{display:block;font:500 10.5px/1 var(--f-mono);letter-spacing:.14em;margin-bottom:5px;text-transform:uppercase;opacity:.75}
+.msg.ai .who{color:var(--gold);opacity:1}
+.act{align-self:flex-start;font:500 13px/1.3 var(--f-mono);color:var(--go);padding:4px 2px}
+.act.err{color:var(--red)}
+.confirm{align-self:flex-start;max-width:min(560px,100%);padding:14px 16px;border-radius:20px;border:2px solid var(--mango);background:#FFF7E3}
+.confirm b{display:block;font:400 19px/1.3 var(--f-hud);color:var(--gold)}
+.confirm p{margin:6px 0 10px;font-size:15px;color:var(--ink)}
+.confirm .row{display:flex;gap:8px;flex-wrap:wrap}
+.go-btn{border:0;border-radius:999px;background:var(--go);color:#fff;padding:10px 16px;font:400 16px/1 var(--f-hud)}
+.about{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font:500 12.5px/1 var(--f-mono);color:var(--ink-2)}
+.about button{border:0;border-radius:999px;background:var(--deck);color:var(--arc-2);padding:6px 11px;font:700 13px/1 var(--f-body)}
+.compose{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:end}
+.compose textarea{width:100%;min-height:60px;max-height:220px;resize:vertical;padding:13px 16px;border-radius:18px;background:var(--plate-2);border:2px solid var(--edge);color:var(--ink);font:600 16.5px/1.45 var(--f-body)}
+.compose textarea::placeholder,.inline-say input::placeholder{color:var(--dim)}
+.compose textarea:focus,.inline-say input:focus{outline:none;border-color:var(--arc)}
+.mic,.send{height:60px;min-width:60px;padding:0 18px;display:grid;place-items:center;border:0;border-radius:18px;background:var(--deck);color:var(--arc-2);font:400 18px/1 var(--f-hud)}
+.mic svg{width:24px;height:24px}
+.mic[data-on="1"]{background:var(--red);color:#fff;animation:blink 1.2s infinite}
+.send{background:var(--mango);color:var(--ink);box-shadow:0 4px 0 #D98A00}
+.send:active{transform:translateY(2px);box-shadow:0 2px 0 #D98A00}
+.send:disabled{opacity:.5;cursor:default}
+.partial{font:600 15px/1.4 var(--f-body);color:var(--dim);font-style:italic;min-height:1.4em}
+.hint{font-size:14px;color:var(--dim)}
+.quick{margin-top:14px}
+.quick .grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.quick .out{padding:9px 14px;border-radius:999px}
+.quick .out b{font-size:15px;display:inline}
+.quick .out small{display:inline;margin:0 0 0 6px}
+.inline-say{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:10px}
+.inline-say input{min-width:0;height:54px;padding:0 16px;border-radius:999px;background:var(--plate-2);border:2px solid var(--edge);color:var(--ink);font:600 16.5px/1 var(--f-body)}
+.inline-say .send{height:54px;border-radius:999px}
+.recap{margin-top:16px;padding:14px 16px;border-radius:18px;background:var(--plate-2);border:1px solid var(--edge);font-size:16px}
+.recap .lab{display:block;margin-bottom:4px}
+@media (max-width:560px){.compose{grid-template-columns:minmax(0,1fr) auto}.compose textarea{grid-column:1/-1}.mic,.send{height:50px}}
+
+@media (max-width:860px){.hud{grid-template-columns:minmax(0,1fr);justify-items:center}.stats{width:100%}.tgt{grid-template-columns:minmax(0,1fr)}.brief{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:560px){.stats{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.stats .stat:first-child{grid-column:1/-1}.reactor{width:200px;height:200px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.drought{display:inline-flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin-top:12px;padding:10px 16px;border-radius:18px;background:#FFE3E6;color:#8E1B2B;font:700 16px/1.3 var(--f-body);animation:nudge 3.5s ease-in-out infinite}
+.drought b{font:400 30px/1 var(--f-hud);color:var(--red)}
+.drought span{flex-basis:100%;font:600 13.5px/1.35 var(--f-body);color:#8E1B2B;opacity:.85}
+@keyframes nudge{0%,88%,100%{transform:none}91%{transform:rotate(-1.2deg)}94%{transform:rotate(1.2deg)}97%{transform:rotate(-.6deg)}}
+.tagline svg{width:16px;height:16px;transform-origin:50% 0;animation:swing 2.4s ease-in-out infinite}
+@keyframes swing{0%,100%{transform:rotate(-14deg)}50%{transform:rotate(14deg)}}
+.reward{animation:bob 2.8s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.q{transition:transform .18s}
+.q:hover{transform:translateY(-3px) rotate(-.4deg)}
+.lock{animation:castIn .55s cubic-bezier(.2,1.2,.3,1) both}
+@keyframes castIn{from{transform:translateY(14px);opacity:.4}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.q.zz{opacity:.55}
+.q.zz .st{border-style:dashed}
+.q.lt .st{background:var(--deck);border-color:var(--arc)}
+.snz{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.zzb{background:var(--plate-2)}
+.zzbanner{background:#E3F3FB;color:var(--arc-2)}
+.msg .cp{display:block;margin-top:8px;font-size:11.5px;padding:5px 10px}
+.story{margin-top:14px;padding:14px 16px;border-radius:18px;background:var(--sand);border:1px solid #F3DFA8}
+.story-h{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.story p{margin:0;font:600 17px/1.55 var(--f-body);color:var(--ink)}
+.story .ago{font:500 12px/1 var(--f-mono);padding:5px 9px;border-radius:999px;background:#fff;color:var(--gold)}
+.empty-story p{color:var(--ink-2);margin-bottom:10px}
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;gap:6px;padding:6px;border-radius:999px;background:rgba(255,255,255,.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:var(--shadow);align-self:flex-start;max-width:100%;overflow-x:auto}
+.tabbtn{border:0;background:transparent;padding:10px 18px;border-radius:999px;font:400 18px/1 var(--f-hud);color:var(--ink-2)}
+.tabbtn[aria-current="page"]{background:var(--arc);color:#fff}
+.tab{display:flex;flex-direction:column;gap:20px}
+.pane-h{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.pane-title{margin:4px 0 0;font:400 clamp(36px,5.5vw,60px)/1 var(--f-hud);color:var(--ink)}
+.cards4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.panel{padding:clamp(16px,2.6vw,24px);border-radius:28px;background:var(--plate);border:1px solid var(--edge);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px}
+.pipe{display:flex;flex-direction:column;gap:10px}
+.prow{display:grid;grid-template-columns:minmax(0,170px) minmax(0,1fr) auto;gap:12px;align-items:center;font-weight:700}
+.prow .bar{height:16px;border-radius:999px;background:var(--deck);overflow:hidden}
+.prow .bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--arc),var(--mango))}
+.prow b{font:400 20px/1 var(--f-hud)}
+.pane-line{margin:0;font:600 17px/1.5 var(--f-body);color:var(--ink-2)}
+.today-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.tcell{padding:14px;border-radius:18px;background:var(--plate-2);border:1px solid var(--edge);display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.tcell b{font:400 34px/1 var(--f-hud);color:var(--ink)}
+.tcell small{font-size:13.5px;color:var(--ink-2)}
+@media (max-width:760px){.cards4,.today-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.prow{grid-template-columns:minmax(0,1fr) auto}.prow .bar{grid-column:1/-1;order:3}}
+</style>
+</head>
+<body>
+
+<canvas id="bg" aria-hidden="true"></canvas>
+<div class="wrap">
+  <header class="bar">
+    <div class="mark"><div class="glyph"><i></i></div><div><b>Julia</b><span>DIGITAL GROWTH // DAY ON THE WATER</span></div></div>
+    <div class="sys"><span class="live">Conditions <em>primo</em></span><span id="clock" class="num">--:--</span><span id="opname">OPERATION LOADING</span></div>
+  </header>
+  <nav class="tabs" aria-label="Sections"><button class="tabbtn" data-tab="today" aria-current="page">Today</button><button class="tabbtn" data-tab="business">Business</button><button class="tabbtn" data-tab="life">Life</button></nav>
+
+  <div id="tab-today" class="tab">
+  <section class="brief">
+    <div>
+      <div class="lab" id="date-lab">Today's plan</div>
+      <h1><span id="tod">Kia ora</span>, Weapon.</h1>
+      <p class="say" id="say" aria-live="polite"></p>
+      <div class="drought" id="drought" hidden></div>
+    </div>
+    <button class="voice" id="voice" hidden aria-label="Read the briefing aloud"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg><span>Give us the rundown</span></button>
+  </section>
+
+  <section class="hud">
+    <div class="reactor"><canvas id="reactor" width="480" height="480"></canvas><div class="core"><div><b id="r-pct" class="num">0%</b><span>BAG LIMIT</span></div></div></div>
+    <div class="stats">
+      <div class="stat gold"><span class="lab">Monthly $ on the line</span><b id="s-stake" class="num">$0</b><small id="s-stake-sub">if every one of them bites</small></div>
+      <div class="stat go"><span class="lab">In the chilly bin</span><b id="s-won" class="num">$0</b><small id="s-won-sub">0 targets closed</small></div>
+      <div class="stat"><span class="lab">Spots fished</span><b id="s-clear" class="num">0/0</b><small id="s-clear-sub">Calls made today</small></div>
+      <div class="xpwrap"><div class="xphead"><b id="rank">Bait Boy</b><span class="lab num" id="xp-lab">0 XP</span></div><div class="xpbar"><i id="xp" style="width:0%"></i></div></div>
+    </div>
+  </section>
+
+  <section id="lock-slot"></section>
+
+  <section class="console" aria-label="Talk to Julia">
+    <div class="console-h">
+      <h3><span class="orb" id="orb"></span>Yarn with Julia</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="toggle" id="perms" hidden>PERMISSIONS</button><button class="toggle" id="voice-replies" aria-pressed="false" hidden>VOICE REPLIES</button></div>
+    </div>
+    <div class="log" id="log" aria-live="polite"></div>
+    <div class="about" id="about"></div>
+    <div class="partial" id="partial"></div>
+    <div class="compose">
+      <textarea id="jin" placeholder="Tell Julia what happened. &quot;Jamie said he'll pay Friday, wants gutters on the site.&quot;" aria-label="Message Julia"></textarea>
+      <button class="mic" id="mic" hidden aria-label="Talk to Julia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5"/></svg></button>
+      <button class="send" id="send">Send</button>
+    </div>
+    <div class="hint" id="jhint">Julia logs the call, moves the CRM, books follow-ups and saves emails straight into your Gmail drafts. Everything here syncs back to base.</div>
+  </section>
+
+  <section>
+    <div class="sec-h"><h3>Today's spots</h3><span class="lab">Tap one to cast</span></div>
+    <div class="queue" id="queue"></div>
+  </section>
+
+  <section>
+    <div class="sec-h"><h3>Money to reel in</h3><span class="lab">Existing clients</span></div>
+    <div class="queue" id="side"></div>
+  </section>
+  </div>
+  <div id="tab-business" class="tab" hidden>
+    <section class="pane-h"><div><div class="lab">Digital Growth</div><h1 class="pane-title">The business</h1></div><button class="mini" id="biz-refresh">Refresh</button></section>
+    <div class="cards4">
+      <div class="stat gold"><span class="lab">Monthly recurring</span><b id="b-mrr" class="num">…</b><small id="b-mrr-sub">from Stripe</small></div>
+      <div class="stat go"><span class="lab">Paying clients</span><b id="b-subs" class="num">…</b><small>active subscriptions</small></div>
+      <div class="stat"><span class="lab">New leads, 7 days</span><b id="b-new" class="num">…</b><small id="b-new-sub">into HighLevel</small></div>
+      <div class="stat"><span class="lab">Lead drought</span><b id="b-dry" class="num">…</b><small id="b-dry-sub">days since a new lead</small></div>
+    </div>
+    <section class="panel">
+      <div class="sec-h"><h3>The pipeline</h3><span class="lab">Open deals by stage</span></div>
+      <div id="b-pipe" class="pipe"><div class="empty">Reeling in the numbers…</div></div>
+    </section>
+    <section class="panel">
+      <div class="sec-h"><h3>Goal: Koh Samui</h3><span class="lab">January 2027</span></div>
+      <p class="pane-line" id="b-goal">Every client is another $100 a month. Keep loading the boat.</p>
+      <div class="links"><a href="https://claude.ai/artifact/JHJKNyEVvRvb3qAAmETzmr" target="_blank" rel="noopener">Old master dashboard (deep dive) ↗</a><a href="clients.html">Clients</a><a href="reminders.html">Reminders</a></div>
+    </section>
+  </div>
+
+  <div id="tab-life" class="tab" hidden>
+    <section class="pane-h"><div><div class="lab">Christmas goal: visibly less fat by 25 Dec</div><h1 class="pane-title">Life</h1></div><button class="mini" id="life-refresh">Refresh</button></section>
+    <div class="cards4">
+      <div class="stat go"><span class="lab">Alcohol free</span><b id="l-alc" class="num">…</b><small id="l-alc-sub">days</small></div>
+      <div class="stat go"><span class="lab">Nicotine free</span><b id="l-nic" class="num">…</b><small id="l-nic-sub">days</small></div>
+      <div class="stat"><span class="lab">Off Instagram</span><b id="l-ig" class="num">…</b><small>days</small></div>
+      <div class="stat gold"><span class="lab">Christmas</span><b id="l-xmas" class="num">…</b><small id="l-samui">days to go</small></div>
+    </div>
+    <section class="panel">
+      <div class="sec-h"><h3>Today</h3><span class="lab" id="l-date"></span></div>
+      <div class="today-grid">
+        <div class="tcell"><span class="lab">Water</span><b id="l-water" class="num">…</b><small>bottles of 3 (1.25 L)</small><button class="mini" id="l-water-add">+1 bottle</button></div>
+        <div class="tcell"><span class="lab">Checklist</span><b id="l-goals" class="num">…</b><small id="l-goals-sub">ticked today</small></div>
+        <div class="tcell"><span class="lab">Steps</span><b id="l-steps" class="num">…</b><small id="l-steps-sub">from your phone</small></div>
+        <div class="tcell"><span class="lab">Food logged</span><b id="l-food" class="num">…</b><small>things today</small></div>
+      </div>
+      <form class="inline-say" id="l-food-form"><input id="l-food-in" type="text" autocomplete="off" placeholder="Log food, e.g. venison on rice" aria-label="Log food"><button class="send" type="submit">Log</button></form>
+      <p class="hint" id="l-hint"></p>
+      <div class="links"><a href="po-water.html">Water</a><a href="food-log.html">Food</a><a href="gym.html">Gym</a><a href="health.html">Health</a><a href="plan.html">The plan</a><a href="caffeine.html">Coffee</a></div>
+    </section>
+  </div>
+
+</div>
+
+<script>
+/* Master Dashboard plumbing for the real app. The page was first built as a claude.ai
+   artifact and talks to `claude.use(...)`; this stands in for it:
+   db     → two Supabase app_state rows (hq_missions, hq_chat) with realtime, so a change
+            on the phone shows on the laptop within a second and back.
+   sample → Julia via /api/hq (Anthropic), tool loop run here in the page.
+   mcp    → HighLevel and Stripe via /api/hq; keys stay on the server. */
+(() => {
+  const ROWS = {missions:'hq_missions', chat:'hq_chat'};
+  const supaReady = new Promise((res) => { const t0 = Date.now(); (function w() { if (window.dashAuth && window.dashAuth.client) res(window.dashAuth.client); else if (Date.now() - t0 > 20000) res(null); else setTimeout(w, 100); })(); });
+  async function token() { const s = await supaReady; if (!s) return ''; const { data } = await s.auth.getSession(); return (data && data.session && data.session.access_token) || ''; }
+  async function api(body) {
+    const r = await fetch('/api/hq', {method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer ' + await token()}, body:JSON.stringify(body)});
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw {code:r.status === 503 ? 'not_configured' : 'tool_error', message:j.error || ('HTTP ' + r.status)};
+    return j;
+  }
+  async function getRow(k) { const s = await supaReady; const { data } = await s.from('app_state').select('data').eq('key', k).maybeSingle(); return (data && data.data) || {}; }
+  async function upsertKey(k, data) { const s = await supaReady; const { error } = await s.from('app_state').upsert({key:k, data, updated_at:new Date().toISOString()}, {onConflict:'key'}); if (error) throw error; }
+
+  // ---- db shim
+  const cache = {}, listeners = {}, chains = {}, started = {};
+  const emit = (k) => (listeners[k] || []).forEach((f) => { try { f(cache[k]); } catch (e) { console.error(e); } });
+  async function loadRow(k) {
+    const s = await supaReady; if (!s) return;
+    cache[k] = await getRow(k); emit(k);
+    s.channel('hq_' + k).on('postgres_changes', {event:'*', schema:'public', table:'app_state', filter:'key=eq.' + k}, (p) => { if (p.new && p.new.data) { cache[k] = p.new.data; emit(k); } }).subscribe();
+  }
+  function watch(k, f) { (listeners[k] = listeners[k] || []).push(f); if (!started[k]) { started[k] = true; loadRow(k); } else if (cache[k]) f(cache[k]); return () => { listeners[k] = listeners[k].filter((x) => x !== f); }; }
+  function writeRow(k) { chains[k] = (chains[k] || Promise.resolve()).then(() => upsertKey(k, cache[k])); return chains[k]; }
+  const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
+  function deepMerge(t, p) { for (const [key, v] of Object.entries(p)) { if (isObj(v) && isObj(t[key])) deepMerge(t[key], v); else t[key] = v; } return t; }
+  const rowKey = (col) => (col === 'chat' ? ROWS.chat : ROWS.missions);
+  const strip = (m) => { const o = Object.assign({}, m); delete o.id; return o; };
+  function getDoc(col, id) {
+    if (col === 'chat') { const c = cache[ROWS.chat]; return c && Object.keys(c).length ? c : null; }
+    const row = cache[ROWS.missions] || {};
+    if (col === 'brief') return row.brief || null;
+    const m = (row.items || []).find((x) => x.id === id); return m ? strip(m) : null;
+  }
+  function mutate(col, id, fn) {
+    const k = rowKey(col); const row = cache[k] = cache[k] || {};
+    if (col === 'chat') cache[k] = fn(Object.keys(row).length ? row : null);
+    else if (col === 'brief') row.brief = fn(row.brief || null);
+    else { row.items = row.items || []; const i = row.items.findIndex((x) => x.id === id); const nd = fn(i >= 0 ? strip(row.items[i]) : null); const full = Object.assign({id}, nd); if (i >= 0) row.items[i] = full; else row.items.push(full); }
+    emit(k); return writeRow(k);
+  }
+  const snapDoc = (id, d) => ({id, exists:!!d, data:() => d || undefined, metadata:{hasPendingWrites:false, fromCache:false}});
+  const db = {
+    doc(path) {
+      const [col, id] = path.split('/');
+      return {
+        id, path,
+        get: () => new Promise((res) => { const off = watch(rowKey(col), () => { off(); res(snapDoc(id, getDoc(col, id))); }); }),
+        onSnapshot: (next) => watch(rowKey(col), () => next(snapDoc(id, getDoc(col, id)))),
+        update: async (patch) => mutate(col, id, (d) => { if (!d) throw {code:'invalid_argument', message:'no such document'}; return deepMerge(d, JSON.parse(JSON.stringify(patch))); }),
+        set: async (data) => mutate(col, id, () => JSON.parse(JSON.stringify(data))),
+        delete: async () => { const row = cache[ROWS.missions] || {}; row.items = (row.items || []).filter((x) => x.id !== id); emit(ROWS.missions); return writeRow(ROWS.missions); },
+      };
+    },
+    collection(col) {
+      const q = {
+        orderBy: () => q, where: () => q, limit: () => q,
+        doc: (id) => db.doc(col + '/' + (id || ('m' + Date.now().toString(36)))),
+        onSnapshot: (next) => watch(ROWS.missions, (row) => { const items = ((row && row.items) || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0)); next({docs:items.map((m) => snapDoc(m.id, strip(m))), size:items.length, empty:!items.length, metadata:{}, docChanges:() => []}); }),
+      };
+      return q;
+    },
+  };
+
+  // ---- Julia: page-run tool loop over /api/hq
+  async function sample(input, opts) {
+    opts = opts || {};
+    const live = (opts.tools || []).filter((t) => !/gmail/i.test(t.name));
+    const tools = live.map((t) => ({name:t.name, description:t.description, input_schema:t.inputSchema || {type:'object', properties:{}}}));
+    const messages = (typeof input === 'string' ? [{role:'user', content:input}] : input).map((m) => ({role:m.role, content:m.content}));
+    if (messages.length && typeof messages[0].content === 'string') messages[0].content += '\n\nIn this app Gmail is not connected yet: when Finn wants an email, write the finished email in your reply for him to copy (no links needed, he pastes them), and say Gmail drafts are coming.';
+    let text = '';
+    for (let round = 0; round < 7; round++) {
+      if (opts.signal && opts.signal.aborted) throw {code:'cancelled', text};
+      let r; try { r = await api({action:'julia', messages, tools}); } catch (e) { throw {code:e.code === 'not_configured' ? 'not_granted' : 'upstream_error', message:e.message, text}; }
+      const blocks = r.content || [];
+      const t = blocks.filter((b) => b.type === 'text').map((b) => b.text).join('');
+      if (t) { const delta = text ? '\n\n' + t : t; text += delta; if (opts.onText) opts.onText({text, delta}); }
+      const uses = blocks.filter((b) => b.type === 'tool_use');
+      if (!uses.length || r.stop_reason !== 'tool_use') return {text:text || 'Sorted.', truncated:r.stop_reason === 'max_tokens'};
+      messages.push({role:'assistant', content:blocks});
+      const results = [];
+      for (const u of uses) {
+        const tool = live.find((x) => x.name === u.name);
+        let out, isErr = false;
+        try { out = tool ? await tool.execute(u.input || {}, {signal:(opts.signal || new AbortController().signal)}) : 'unknown tool'; } catch (e) { out = 'Error: ' + ((e && e.message) || e); isErr = true; }
+        results.push({type:'tool_result', tool_use_id:u.id, content:typeof out === 'string' ? out : JSON.stringify(out), is_error:isErr});
+      }
+      messages.push({role:'user', content:results});
+    }
+    return {text:text || 'Sorted.'};
+  }
+
+  // ---- connectors
+  const mcp = {
+    async callTool(server, tool, input) {
+      try {
+        if (server === 'Highlevel') return {payload:await api({action:'hl', operationId:input.operationId, params:input.params})};
+        if (server === 'Stripe') return {payload:await api({action:'stripe', parameters:input.parameters})};
+      } catch (e) { throw {code:'tool_error', message:e.message}; }
+      throw {code:'server_not_connected', message:server + ' is not hooked up in the app yet'};
+    },
+  };
+
+  // ---- Life data straight from the same rows the rest of the app uses
+  const t0 = (iso) => { const mo = +iso.slice(5, 7); return new Date(iso + 'T00:00:00' + (mo >= 4 && mo <= 9 ? '+12:00' : '+13:00')).getTime(); };
+  window.HQ = {
+    api, upsertKey,
+    async lifeRows() { const s = await supaReady; const { data, error } = await s.from('app_state').select('key,data').in('key', ['streaks', 'health', 'goals', 'apple_health', 'food']); if (error) throw error; return data || []; },
+    async bumpWater(day) { const d = await getRow('health'); d.po_water_v1 = d.po_water_v1 || {logs:{}}; d.po_water_v1.logs = d.po_water_v1.logs || {}; d.po_water_v1.logs[day] = (Number(d.po_water_v1.logs[day]) || 0) + 1; await upsertKey('health', d); },
+    async addFood(txt) { const d = await getRow('food'); const list = Array.isArray(d['food:logs']) ? d['food:logs'] : []; const now = Date.now(); list.push({id:'f' + now + '000', n:txt, note:'', ts:now}); d['food:logs'] = list; await upsertKey('food', d); },
+    dayStart: t0,
+  };
+  window.claude = { use: async (n) => (n === 'db' ? db : n === 'sample' ? sample : n === 'mcp' ? mcp : null) };
+})();
+</script>
+
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const OUT = {
+    paid:{label:'Paid', xp:200, col:'var(--go)', won:true, flash:'HOOKED ONE!'},
+    yes:{label:'Said yes', xp:120, col:'var(--go)', won:true, flash:'ON THE LINE!'},
+    spoke:{label:'Spoke, no yes yet', xp:50, col:'var(--arc-2)', flash:'GOT A NIBBLE'},
+    voicemail:{label:'No answer', xp:20, col:'var(--ink-2)', flash:'NO BITE. NEXT.'},
+    later:{label:'Not now', xp:30, col:'var(--gold)', flash:'SAVED FOR LATER'},
+    done:{label:'Done', xp:80, col:'var(--go)', won:true, flash:'BAGGED IT!'}
+  };
+  OUT.nope = {label:'Not interested', xp:10, col:'var(--red)', flash:'THROWN BACK'};
+  OUT.wrong = {label:'Wrong number', xp:5, col:'var(--ink-2)', flash:'WRONG SPOT'};
+  const CALL_OUTS = ['paid','yes','spoke','voicemail','later','nope','wrong'];
+  const SNOOZE = {later:{label:'Later today', note:'Later today'}, tomorrow:{label:'Tomorrow', days:1}, desk:{label:'At my desk', days:1}, week:{label:'Next week', days:7}};
+  const todayISO = () => new Date().toLocaleDateString('en-CA', {timeZone:'Pacific/Auckland'});
+  const addDays = (iso, n) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const sleeping = (m) => !m.outcome && m.snoozedUntil && m.snoozedUntil > todayISO();
+  const laterToday = (m) => !m.outcome && m.snoozedUntil === todayISO() && m.laterToday;
+  const dayName = (iso) => new Date(iso + 'T12:00:00Z').toLocaleDateString('en-NZ', {weekday:'short', day:'numeric', month:'short', timeZone:'UTC'});
+  const pickNext = () => S.missions.find((m) => !m.outcome && !sleeping(m) && !laterToday(m)) || S.missions.find((m) => laterToday(m));
+  const RANKS = [[0,'Bait Boy'],[150,'Deckie'],[400,'Skipper'],[700,'Trophy Hunter'],[1000,'Legend']];
+
+  const S = { db:null, missions:[], brief:null, sel:null, state:'loading', tts:null, speaking:false };
+
+  // clock + time of day
+  function tick() {
+    const d = new Date();
+    $('#clock').textContent = d.toLocaleTimeString('en-NZ', {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false});
+    const h = d.getHours();
+    $('#tod').textContent = h < 12 ? 'Mōrena' : 'Kia ora';
+  }
+  tick(); setInterval(tick, 1000);
+
+  // typewriter
+  let typeTimer = null, typed = '';
+  function typeLine(text) {
+    if (text === typed) return;
+    typed = text;
+    const el = $('#say'); clearInterval(typeTimer);
+    if (reduce) { el.textContent = text; return; }
+    let i = 0; el.innerHTML = '<span class="cur"></span>';
+    typeTimer = setInterval(() => {
+      i += 2; el.innerHTML = esc(text.slice(0, i)) + '<span class="cur"></span>';
+      if (i >= text.length) { clearInterval(typeTimer); el.innerHTML = esc(text) + '<span class="cur"></span>'; }
+    }, 22);
+  }
+
+  // derived numbers
+  function calc() {
+    const ms = S.missions;
+    const live = ms.filter((m) => !sleeping(m)), total = live.length, cleared = live.filter((m) => m.outcome).length;
+    const xp = ms.reduce((a, m) => a + (m.outcome && OUT[m.outcome] ? OUT[m.outcome].xp : 0), 0);
+    const stake = ms.filter((m) => m.kind === 'call').reduce((a, m) => a + (m.mrr || 0), 0);
+    const wonMs = ms.filter((m) => m.outcome && OUT[m.outcome].won && m.kind !== 'alpha');
+    const won = wonMs.reduce((a, m) => a + (m.mrr || 0), 0);
+    const calls = ms.filter((m) => m.outcome && m.kind !== 'alpha').length;
+    let rank = RANKS[0], next = null;
+    for (let i = 0; i < RANKS.length; i++) { if (xp >= RANKS[i][0]) { rank = RANKS[i]; next = RANKS[i + 1] || null; } }
+    return { total, cleared, xp, stake, won, wonN: wonMs.length, calls, rank, next };
+  }
+
+  function heatColor(w) { return w >= 75 ? 'var(--go)' : w >= 55 ? 'var(--arc)' : 'var(--mango)'; }
+  function money(n) { return '$' + Math.round(n).toLocaleString('en-NZ'); }
+
+  function render() {
+    const c = calc();
+    $('#opname').textContent = S.brief && S.brief.op ? String(S.brief.op).toUpperCase() : (S.state === 'nodb' ? 'OFFLINE' : 'STANDING BY');
+    const dr = S.brief && S.brief.drought;
+    if (dr && dr.days != null) { const el = $('#drought'); el.hidden = false; el.innerHTML = '<b class="num">' + esc(dr.days) + '</b> days since a new lead hit the CRM' + (dr.sub ? '<span>' + esc(dr.sub) + '</span>' : ''); }
+    if (S.brief && S.brief.dateLabel) $('#date-lab').textContent = 'Mission brief // ' + S.brief.dateLabel;
+    $('#s-stake').textContent = money(c.stake);
+    $('#s-won').textContent = money(c.won);
+    $('#s-won-sub').textContent = c.wonN + (c.wonN === 1 ? ' target closed' : ' targets closed') + (c.won ? ', ' + money(c.won * 12) + ' a year' : '');
+    $('#s-clear').textContent = c.cleared + '/' + c.total;
+    $('#s-clear-sub').textContent = c.calls + (c.calls === 1 ? ' call logged today' : ' calls logged today');
+    $('#rank').textContent = c.rank[1];
+    const span = c.next ? c.next[0] - c.rank[0] : 1, into = c.next ? c.xp - c.rank[0] : 1;
+    $('#xp').style.width = Math.min(100, (into / span) * 100) + '%';
+    $('#xp-lab').textContent = c.xp + ' XP' + (c.next ? ' // ' + (c.next[0] - c.xp) + ' to ' + c.next[1].toUpperCase() : ' // TOP OF THE FOOD CHAIN');
+    const pct = c.total ? Math.round((c.cleared / c.total) * 100) : 0;
+    $('#r-pct').textContent = pct + '%';
+    reactorTarget = c.total ? c.cleared / c.total : 0;
+
+    if (S.state === 'nodb') {
+      typeLine('Can\'t reach base from here. Open this page in claude.ai and I\'ll load today\'s spots.');
+      $('#lock-slot').innerHTML = '<div class="empty"><b>No signal out here</b>Open this page in claude.ai to load today\'s spots.</div>';
+      $('#queue').innerHTML = ''; $('#side').innerHTML = ''; return;
+    }
+    if (!S.missions.length) {
+      typeLine(S.state === 'loading' ? 'Checking the CRM, Gmail and Stripe for today\'s spots.' : 'Nothing on the list yet. Ask for today\'s plan and I\'ll load it up.');
+      $('#lock-slot').innerHTML = '<div class="empty"><b>' + (S.state === 'loading' ? 'Baiting up' : 'Nothing biting yet') + '</b>Today\'s spots show up here once the plan is loaded.</div>';
+      $('#queue').innerHTML = ''; $('#side').innerHTML = ''; return;
+    }
+
+    if (!S.sel || !S.missions.find((m) => m.id === S.sel)) {
+      const firstOpen = pickNext();
+      S.sel = (firstOpen || S.missions[0]).id;
+    }
+    const allDone = c.cleared === c.total;
+    typeLine(allDone ? 'Full bag, Weapon. Chur. Koh Samui just got a bit closer.' : (S.brief && S.brief.line) || 'Lines are in the water. Start with the first one.');
+
+    const m = S.missions.find((x) => x.id === S.sel);
+    const prevIn = $('#lock-slot input'), keep = prevIn ? {id:prevIn.id, v:prevIn.value, f:document.activeElement === prevIn} : null;
+    $('#lock-slot').innerHTML = lockCard(m);
+    if (keep) { const ni = document.getElementById(keep.id); if (ni) { ni.value = keep.v; if (keep.f) ni.focus(); } }
+
+    const card = (x) => {
+      const o = x.outcome && OUT[x.outcome];
+      const zz = sleeping(x), lt = laterToday(x);
+      const cls = 'q' + (x.kind === 'alpha' ? ' alpha' : '') + (o ? (o.won ? ' won' : ' soft') : '') + (zz ? ' zz' : '') + (lt ? ' lt' : '');
+      const sub = o ? o.label : zz ? 'Snoozed till ' + dayName(x.snoozedUntil) : lt ? 'Later today' : (x.mrr ? money(x.mrr) + '/mo' : x.oneOff ? money(x.oneOff) + ' owed' : x.biz || '');
+      return '<button class="' + cls + '" data-sel="' + esc(x.id) + '" aria-current="' + (x.id === S.sel) + '"><span class="code">' + esc(x.code) + '</span><span style="min-width:0"><span class="nm" style="display:block">' + esc(x.target) + '</span><span class="sb" style="display:block">' + esc(sub) + '</span></span><span class="st"></span></button>';
+    };
+    const rank = (x) => (sleeping(x) ? 3 : laterToday(x) ? 1 : 0);
+    const ordered = S.missions.slice().sort((a, b) => rank(a) - rank(b) || (a.order || 0) - (b.order || 0));
+    $('#queue').innerHTML = ordered.filter((x) => x.kind !== 'collect').map(card).join('');
+    const side = ordered.filter((x) => x.kind === 'collect');
+    $('#side').innerHTML = side.length ? side.map(card).join('') : '<div class="empty" style="grid-column:1/-1">No side quests today.</div>';
+  }
+
+  function ago(iso) {
+    if (!iso) return '';
+    const d = Math.round((new Date(todayISO() + 'T12:00:00Z') - new Date(String(iso).slice(0, 10) + 'T12:00:00Z')) / 864e5);
+    return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d < 14 ? d + ' days ago' : d < 60 ? Math.round(d / 7) + ' weeks ago' : Math.round(d / 30) + ' months ago';
+  }
+  function storyBlock(m) {
+    const chip = m.lastContact ? '<span class="ago">Last yarn: ' + esc(ago(m.lastContact)) + '</span>' : '';
+    if (m.story) return '<div class="story"><div class="story-h"><span class="lab">The yarn</span>' + chip + '</div><p>' + esc(m.story) + '</p></div>';
+    if (m.kind === 'call' || m.kind === 'collect') return '<div class="story empty-story"><div class="story-h"><span class="lab">The yarn</span>' + chip + '</div><p>No rundown on this one yet.</p><button class="mini" data-fillin="' + esc(m.id) + '">Julia, fill me in</button></div>';
+    return '';
+  }
+
+  function lockCard(m) {
+    const o = m.outcome && OUT[m.outcome];
+    const alpha = m.kind === 'alpha';
+    const w = Math.max(0, Math.min(100, m.warmth || 0)), on = Math.round(w / 5), hc = heatColor(w);
+    const meter = Array.from({length:20}, (_, i) => '<span class="' + (i < on ? 'on' : '') + '"></span>').join('');
+    const tag = alpha ? 'First cast // do this first' : m.kind === 'collect' ? 'Reel it in // money owed' : 'On the line';
+    const reward = m.mrr ? '+' + money(m.mrr) + '/mo' : m.oneOff ? money(m.oneOff) + ' to recover' : '';
+    const phone = m.phone
+      ? '<div class="phone"><b>' + esc(m.phone) + '</b><button class="mini" data-copy="' + esc(m.phone) + '">Copy</button></div>'
+      : '<div class="phone"><span class="none">' + esc(m.noPhone || 'No number in the CRM. Grab it off their Facebook.') + '</span></div>';
+    const allLinks = (m.siteUrl && !(m.links || []).some((l) => l.href === m.siteUrl) ? [{label:'The site we built', href:m.siteUrl}] : []).concat(m.links || []);
+    const links = allLinks.filter((l) => /^https:\/\//.test(l.href || '')).map((l) => '<a href="' + esc(l.href) + '" target="_blank" rel="noopener">' + esc(l.label) + ' ↗</a>').join('');
+    const outs = alpha || m.kind === 'collect' && m.doneOnly ? ['done'] : CALL_OUTS;
+    const snz = (alpha || m.doneOnly) ? ['desk', 'tomorrow', 'week'] : ['later', 'tomorrow', 'week'];
+    const snzRow = '<div class="grid snz">' + snz.map((k) => '<button class="out zzb" style="--oc:var(--arc-2)" data-snooze="' + k + '" data-id="' + esc(m.id) + '"><b>' + esc(SNOOZE[k].label) + '</b></button>').join('') + '</div>';
+    const sleepBanner = (sleeping(m) || laterToday(m)) ? '<div class="done-banner zzbanner"><span>' + (sleeping(m) ? 'Snoozed till ' + esc(dayName(m.snoozedUntil)) : 'Back on the list later today') + '</span><button class="mini" data-wake="' + esc(m.id) + '">Do it now</button></div>' : '';
+    const recap = (m.summary || m.nextStep) ? '<div class="recap">' + (m.summary ? '<span class="lab">What happened</span>' + esc(m.summary) : '') + (m.nextStep ? '<span class="lab" style="margin-top:8px">Next step' + (m.followUp ? ' // ' + esc(m.followUp) : '') + '</span>' + esc(m.nextStep) : '') + '</div>' : '';
+    const acts = o
+      ? '<div class="done-banner"><span>' + esc(o.flash) + ' // ' + esc(o.label) + ' // +' + o.xp + ' XP</span><button class="mini" data-undo="' + esc(m.id) + '">Undo</button></div>' + recap
+      : recap + '<div class="acts"><span class="lab">Tell Julia what happened</span><form class="inline-say" data-say="' + esc(m.id) + '"><input id="say-' + esc(m.id) + '" type="text" autocomplete="off" placeholder="' + (alpha ? 'e.g. done, refunded him' : 'e.g. he\'ll pay Friday, wants gutters added') + '" aria-label="Update for ' + esc(m.target) + '"><button class="send" type="submit">Send</button></form>' + sleepBanner + '<div class="quick"><span class="lab">Or quick log</span><div class="grid">' + outs.map((k) => '<button class="out" style="--oc:' + OUT[k].col + '" data-out="' + k + '" data-id="' + esc(m.id) + '"><b>' + esc(OUT[k].label) + '</b><small>+' + OUT[k].xp + '</small></button>').join('') + '</div><span class="lab" style="display:block;margin-top:12px">Not now</span>' + snzRow + '</div><div style="margin-top:12px"><button class="mini" data-debrief="' + esc(m.id) + '">Long debrief or mic</button></div></div>';
+    return '<article class="lock' + (alpha ? ' alpha' : '') + '">' +
+      '<div class="lock-top"><span class="tagline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v12a4 4 0 1 1-8 0v-2l3 3"/></svg>' + esc(m.code) + ' // ' + esc(tag) + '</span>' + (reward ? '<span class="reward num">' + esc(reward) + '</span>' : '') + '</div>' +
+      '<div class="tgt"><div style="min-width:0">' +
+        '<h2>' + esc(m.target) + '</h2><p class="biz">' + esc(m.biz || '') + '</p>' +
+        storyBlock(m) +
+        (m.warmth != null ? '<div class="heat" style="--hc:' + hc + '"><div class="row"><span>HOW HUNGRY</span><span class="num">' + w + '%</span></div><div class="meter">' + meter + '</div></div>' : '') +
+        '<ul class="intel">' + (m.intel || []).map((t) => '<li><span>' + esc(t) + '</span></li>').join('') + '</ul>' +
+        (m.objective ? '<div class="obj"><span class="lab">Objective</span>' + esc(m.objective) + '</div>' : '') +
+      '</div><div class="side">' +
+        '<div class="comms"><span class="lab">Give them a bell</span>' + phone + '</div>' +
+        (m.opener ? '<div class="comms"><span class="lab">Open with</span><div class="script">' + esc(m.opener) + '</div></div>' : '') +
+        (links ? '<div class="links">' + links + '</div>' : '') +
+      '</div></div>' + acts + '</article>';
+  }
+
+  // interactions
+  document.addEventListener('click', async (e) => {
+    const t = e.target.closest('button'); if (!t) return;
+    if (t.dataset.sel) { S.sel = t.dataset.sel; S.about = t.dataset.sel; renderAbout(); render(); $('#lock-slot').scrollIntoView({behavior: reduce ? 'auto' : 'smooth', block:'start'}); return; }
+    if (t.dataset.debrief) { S.about = t.dataset.debrief; renderAbout(); const ta = $('#jin'); ta.focus(); ta.scrollIntoView({behavior: reduce ? 'auto' : 'smooth', block:'center'}); return; }
+    if (t.dataset.unabout) { S.about = null; renderAbout(); return; }
+    if (t.dataset.park) { await runPark(t.dataset.park); return; }
+    if (t.dataset.nopark) { const p = S.pending[t.dataset.nopark]; if (p) { p.state = 'cancelled'; renderLog(); } return; }
+    if (t.dataset.fillin) { const fm = missionById(t.dataset.fillin); if (fm && !S.busy) { S.about = fm.id; renderAbout(); sendMsg('Fill me in on ' + fm.target + '. Dig through my Gmail and the CRM notes, then write the card\'s yarn.', {research:true}); $('#log').scrollIntoView({behavior: reduce ? 'auto' : 'smooth', block:'center'}); } return; }
+    if (t.dataset.cpmsg) { const it = S.items[+t.dataset.cpmsg]; if (it) { try { await navigator.clipboard.writeText(it.text); toast('Copied'); } catch (err) { toast('Select the text to copy'); } } return; }
+    if (t.dataset.copy) {
+      try { await navigator.clipboard.writeText(t.dataset.copy); toast('Number copied'); }
+      catch (err) { const r = document.createRange(); const b = t.previousElementSibling; if (b) { r.selectNodeContents(b); const s = getSelection(); s.removeAllRanges(); s.addRange(r); } toast('Number selected, copy it'); }
+      return;
+    }
+    if (t.dataset.out) { await setOutcome(t.dataset.id, t.dataset.out); return; }
+    if (t.dataset.snooze) { await snooze(t.dataset.id, t.dataset.snooze); return; }
+    if (t.dataset.wake) { await snooze(t.dataset.wake, null); return; }
+    if (t.dataset.undo) { await setOutcome(t.dataset.undo, null); return; }
+  });
+
+  async function setOutcome(id, out) {
+    const m = S.missions.find((x) => x.id === id); if (!m || !S.db) return;
+    const prev = m.outcome || null;
+    m.outcome = out; render();
+    try { await S.db.doc('missions/' + id).update({outcome: out, doneAt: out ? new Date().toISOString() : null}); }
+    catch (err) { m.outcome = prev; render(); toast(err && err.code === 'invalid_argument' ? 'Only Finn can log outcomes here' : 'Could not save, try again'); return; }
+    if (out) {
+      flash(OUT[out]);
+      ladderStep(m, out).then((r) => { if (r) toast('CRM: ' + r); }).catch((e) => toast(e.message || 'CRM update failed'));
+      const nxt = pickNext();
+      if (nxt) setTimeout(() => { S.sel = nxt.id; render(); }, reduce ? 0 : 1100);
+    }
+  }
+
+  // contact ladder: answered -> "contact"; no answer -> contact 1 -> 2 -> 3 -> "contact 4 - nurture" + 3-month follow-up.
+  // HighLevel workflows on these tags swap the old tag out, write the attempt note, set the opp value and reset "last updated".
+  const LADDER = ['contact', 'contact 1', 'contact 2', 'contact 3'];
+  const ANSWERED = ['paid', 'yes', 'spoke', 'later', 'nope'];
+  async function ladderStep(m, out) {
+    if (!m || !m.contactId || !S.mcp) return null;
+    const answered = ANSWERED.includes(out);
+    if (!answered && out !== 'voicemail') return null;
+    const got = await hl('get-contact', {path:{contactId:m.contactId}}, 'Read contact tags');
+    const tags = ((got && (got.contact || got)) || {}).tags || [];
+    let cur = -1; LADDER.forEach((t, i) => { if (tags.includes(t)) cur = Math.max(cur, i); });
+    if (answered) {
+      const add = ['contact'].concat(out === 'nope' ? ['3   -  not interested'] : []);
+      await hl('add-tags', {path:{contactId:m.contactId}, body:{tags:add}}, 'Call answered, from Mission Control');
+      return out === 'nope' ? 'tagged contact + not interested' : 'answered, tagged contact';
+    }
+    if (cur < 3) {
+      const next = LADDER[cur + 1] === 'contact' ? 'contact 1' : LADDER[cur + 1];
+      await hl('add-tags', {path:{contactId:m.contactId}, body:{tags:[next]}}, 'No answer, from Mission Control');
+      return 'no answer, moved to ' + next;
+    }
+    await hl('add-tags', {path:{contactId:m.contactId}, body:{tags:['contact 4 - nurture']}}, '4th no answer, from Mission Control');
+    const d = new Date(todayISO() + 'T12:00:00Z'); d.setUTCMonth(d.getUTCMonth() + 3);
+    const y = d.getUTCFullYear(), mo = d.getUTCMonth() + 1, mName = MONTHS[mo - 1];
+    const label = mName[0].toUpperCase() + mName.slice(1) + ' ' + y;
+    await hl('add-tags', {path:{contactId:m.contactId}, body:{tags:[tagFor(mName)]}}, 'Nurture follow-up month');
+    const due = new Date(y + '-' + String(mo).padStart(2, '0') + '-01T09:00:00' + ((mo >= 4 && mo <= 9) ? '+12:00' : '+13:00')).toISOString();
+    await hl('create-task', {path:{contactId:m.contactId}, body:{title:'Follow up ' + m.target + ' (nurture) - ' + label, body:'4 calls with no answer. Try again.', dueDate:due, completed:false, assignedTo:FINN_USER}}, 'Nurture follow-up task');
+    return '4th no answer: nurture, follow-up booked for ' + label;
+  }
+
+  async function snooze(id, key) {
+    const m = S.missions.find((x) => x.id === id); if (!m || !S.db) return;
+    const t0 = todayISO();
+    const patch = !key ? {snoozedUntil:null, laterToday:false} : key === 'later' ? {snoozedUntil:t0, laterToday:true} : {snoozedUntil:addDays(t0, SNOOZE[key].days), laterToday:false};
+    const prev = {snoozedUntil:m.snoozedUntil || null, laterToday:!!m.laterToday};
+    Object.assign(m, patch); S.sel = key ? null : m.id; render();
+    try { await S.db.doc('missions/' + id).update(patch); }
+    catch (err) { Object.assign(m, prev); render(); toast('Could not save, try again'); return; }
+    if (key) toast(key === 'later' ? 'Back on the list later today' : 'Snoozed till ' + dayName(patch.snoozedUntil));
+  }
+
+  function toast(msg) {
+    const d = document.createElement('div'); d.className = 'toast'; d.textContent = msg; document.body.appendChild(d);
+    setTimeout(() => d.remove(), 1800);
+  }
+  function flash(o) {
+    const d = document.createElement('div'); d.className = 'flash'; d.style.setProperty('--fc', o.col.replace('var(--ink-2)', 'var(--arc-2)'));
+    d.innerHTML = '<div><b>' + esc(o.flash) + '</b><span>+' + o.xp + ' XP</span></div>';
+    document.body.appendChild(d); burst(o.won);
+    setTimeout(() => d.remove(), reduce ? 700 : 1300);
+  }
+
+  // background: hex grid + sweep + particles
+  const bg = $('#bg'), bx = bg.getContext('2d');
+  let W = 0, H = 0, sweep = 0, parts = [];
+  function size() { const r = devicePixelRatio || 1; W = innerWidth; H = innerHeight; bg.width = W * r; bg.height = H * r; bx.setTransform(r, 0, 0, r, 0, 0); }
+  size(); addEventListener('resize', () => { size(); seedScene(); });
+  // scenery: island with a stag, gulls, fish, a diver, bubbles, and a kingfish leap on a catch
+  const FISH_COLS = [['#FF8E7E','#E2604F'], ['#9AD8E6','#F5C531'], ['#5DA9C7','#2F6F8F'], ['#FFC15E','#E58A1F']];
+  let fish = [], bubbles = [], gulls = [], leaps = [], splash = [], diver = {x:-120, dir:1, next:0};
+  function seedScene() {
+    const n = Math.max(5, Math.min(14, Math.round(W / 110)));
+    fish = Array.from({length:n}, (_, i) => newFish(Math.random() * W));
+    gulls = Array.from({length:3}, (_, i) => ({x:Math.random() * W, y:60 + Math.random() * 120, s:.25 + Math.random() * .35, sz:9 + Math.random() * 7, ph:Math.random() * 6}));
+  }
+  function newFish(x) {
+    const dir = Math.random() < .5 ? 1 : -1, c = FISH_COLS[Math.floor(Math.random() * FISH_COLS.length)];
+    return {x: x == null ? (dir > 0 ? -60 : W + 60) : x, y:H * (.875 + Math.random() * .1), dir, v:.35 + Math.random() * .9, sz:9 + Math.random() * 15, c, ph:Math.random() * 6};
+  }
+  function burst(big) {
+    const n = big ? 110 : 45, cols = ['#16924F', '#FFB321', '#E6455A', '#0AA6A0', '#FF8A3D'];
+    for (let i = 0; i < n; i++) { const a = -Math.PI / 2 + (Math.random() - .5) * Math.PI * 1.4, v = 4 + Math.random() * (big ? 9 : 5); parts.push({x:W / 2, y:H * .55, vx:Math.cos(a) * v, vy:Math.sin(a) * v, life:1, r:Math.random() * 6.28, c:cols[i % cols.length]}); }
+    if (big) leaps.push({t:0, x0:W * (.3 + Math.random() * .4), dir:Math.random() < .5 ? 1 : -1});
+    else for (let i = 0; i < 18; i++) bubbles.push({x:W * (.3 + Math.random() * .4), y:H * .97, r:2 + Math.random() * 5, v:.8 + Math.random() * 1.4, ph:Math.random() * 6});
+  }
+  function drawFishAt(x, y, sz, dir, c, tail, ang) {
+    bx.save(); bx.translate(x, y); bx.rotate(ang || 0); bx.scale(dir, 1);
+    bx.fillStyle = c[0];
+    bx.beginPath(); bx.ellipse(0, 0, sz, sz * .42, 0, 0, Math.PI * 2); bx.fill();
+    bx.fillStyle = c[1];
+    bx.beginPath(); bx.moveTo(-sz * .85, 0); bx.lineTo(-sz * 1.55, -sz * .5 + tail); bx.lineTo(-sz * 1.45, 0); bx.lineTo(-sz * 1.55, sz * .5 + tail); bx.closePath(); bx.fill();
+    bx.beginPath(); bx.moveTo(-sz * .2, -sz * .38); bx.lineTo(sz * .25, -sz * .7); bx.lineTo(sz * .45, -sz * .36); bx.closePath(); bx.fill();
+    bx.fillStyle = '#0C2D3A'; bx.beginPath(); bx.arc(sz * .55, -sz * .08, Math.max(1.4, sz * .09), 0, Math.PI * 2); bx.fill();
+    bx.restore();
+  }
+  function drawIsland() {
+    const base = H * .855, w = Math.min(380, W * .42);
+    bx.fillStyle = '#2E8B57';
+    bx.beginPath(); bx.moveTo(-20, base);
+    bx.bezierCurveTo(w * .15, base - 120, w * .45, base - 150, w * .62, base - 92);
+    bx.bezierCurveTo(w * .8, base - 50, w * .95, base - 30, w + 30, base); bx.closePath(); bx.fill();
+    bx.fillStyle = '#237049';
+    for (let i = 0; i < 7; i++) { const tx = w * (.08 + i * .1), ty = base - 60 - Math.sin(i * .9) * 40; bx.beginPath(); bx.moveTo(tx, ty - 34); bx.lineTo(tx - 11, ty + 6); bx.lineTo(tx + 11, ty + 6); bx.closePath(); bx.fill(); }
+    // stag on the ridge, looking out to sea
+    const sx = w * .6, sy = base - 96, k = Math.max(.7, Math.min(1.1, w / 360));
+    bx.save(); bx.translate(sx, sy); bx.scale(k, k);
+    bx.fillStyle = '#123A2E'; bx.strokeStyle = '#123A2E'; bx.lineCap = 'round';
+    bx.beginPath(); bx.ellipse(0, -16, 17, 8, 0, 0, Math.PI * 2); bx.fill();
+    bx.lineWidth = 3.2; [[-11, -10, -13, 6], [-6, -10, -6, 6], [8, -10, 9, 6], [13, -10, 14, 6]].forEach(([a, b, c, d]) => { bx.beginPath(); bx.moveTo(a, b); bx.lineTo(c, d); bx.stroke(); });
+    bx.lineWidth = 6; bx.beginPath(); bx.moveTo(13, -20); bx.lineTo(20, -33); bx.stroke();
+    bx.beginPath(); bx.ellipse(24, -35, 7, 4, -.3, 0, Math.PI * 2); bx.fill();
+    bx.lineWidth = 1.8;
+    [[19, -38, 13, -54], [16, -46, 9, -50], [15, -50, 12, -60], [22, -38, 27, -55], [25, -47, 31, -51], [26, -51, 26, -61]].forEach(([a, b, c, d]) => { bx.beginPath(); bx.moveTo(a, b); bx.lineTo(c, d); bx.stroke(); });
+    bx.restore();
+  }
+  function drawDiver(t) {
+    if (t > diver.next && diver.x < -100 && diver.dir > 0 || t > diver.next && diver.x > W + 100 && diver.dir < 0) { /* waiting */ }
+    diver.x += reduce ? 0 : .45 * diver.dir;
+    if ((diver.dir > 0 && diver.x > W + 140) || (diver.dir < 0 && diver.x < -140)) { diver.dir *= -1; }
+    const x = diver.x, y = H * .935 + Math.sin(t * .8) * 4, d = diver.dir;
+    bx.save(); bx.translate(x, y); bx.scale(d, 1);
+    bx.fillStyle = '#123A4A';
+    bx.beginPath(); bx.ellipse(0, 0, 26, 7, 0, 0, Math.PI * 2); bx.fill();
+    bx.beginPath(); bx.arc(30, -2, 7, 0, Math.PI * 2); bx.fill();
+    bx.fillStyle = '#FFB321'; bx.fillRect(-14, -14, 26, 7);
+    bx.fillStyle = '#7FE3F0'; bx.fillRect(31, -5, 6, 4);
+    const kick = Math.sin(t * 4) * 6;
+    bx.fillStyle = '#0AA6A0';
+    bx.beginPath(); bx.moveTo(-24, -2); bx.lineTo(-44, -8 + kick); bx.lineTo(-42, 2 + kick); bx.closePath(); bx.fill();
+    bx.beginPath(); bx.moveTo(-24, 2); bx.lineTo(-44, 2 - kick); bx.lineTo(-42, 10 - kick); bx.closePath(); bx.fill();
+    bx.restore();
+    if (!reduce && Math.random() < .06) bubbles.push({x:x + 34 * d, y:y - 8, r:1.5 + Math.random() * 3, v:.6 + Math.random() * .8, ph:Math.random() * 6});
+  }
+  function drawBg() {
+    bx.clearRect(0, 0, W, H);
+    const t = reduce ? 0 : performance.now() / 1000;
+    const sx = W * .86, sy = Math.min(140, H * .16);
+    const g = bx.createRadialGradient(sx, sy, 0, sx, sy, 260);
+    g.addColorStop(0, 'rgba(255,214,90,.75)'); g.addColorStop(.25, 'rgba(255,179,33,.35)'); g.addColorStop(1, 'rgba(255,179,33,0)');
+    bx.fillStyle = g; bx.fillRect(0, 0, W, H);
+    bx.fillStyle = '#FFD45A'; bx.beginPath(); bx.arc(sx, sy, 46, 0, Math.PI * 2); bx.fill();
+    // gulls
+    bx.strokeStyle = 'rgba(12,45,58,.55)'; bx.lineWidth = 2; bx.lineCap = 'round';
+    for (const gl of gulls) {
+      gl.x += reduce ? 0 : gl.s; if (gl.x > W + 40) { gl.x = -40; gl.y = 60 + Math.random() * 120; }
+      const f = Math.sin(t * 5 + gl.ph) * gl.sz * .45;
+      bx.beginPath(); bx.moveTo(gl.x - gl.sz, gl.y - f); bx.quadraticCurveTo(gl.x - gl.sz * .4, gl.y - gl.sz * .25, gl.x, gl.y); bx.quadraticCurveTo(gl.x + gl.sz * .4, gl.y - gl.sz * .25, gl.x + gl.sz, gl.y - f); bx.stroke();
+    }
+    drawIsland();
+    const wave = (w) => { bx.fillStyle = w.c; bx.beginPath(); bx.moveTo(0, H); for (let x = 0; x <= W + 20; x += 20) bx.lineTo(x, H * w.y + Math.sin(x / w.l * Math.PI * 2 + t * w.s) * w.a); bx.lineTo(W, H); bx.closePath(); bx.fill(); };
+    wave({y:.85, a:12, l:420, s:.6, c:'rgba(10,166,160,.16)'});
+    // fish
+    for (const f of fish) {
+      f.x += reduce ? 0 : f.v * f.dir;
+      if ((f.dir > 0 && f.x > W + 70) || (f.dir < 0 && f.x < -70)) Object.assign(f, newFish());
+      drawFishAt(f.x, f.y + Math.sin(t * 1.3 + f.ph) * 3, f.sz, f.dir, f.c, Math.sin(t * 9 + f.ph) * f.sz * .18);
+    }
+    drawDiver(t);
+    // bubbles
+    bubbles = bubbles.filter((b) => b.y > H * .84);
+    bx.strokeStyle = 'rgba(255,255,255,.85)'; bx.lineWidth = 1.5;
+    for (const b of bubbles) { b.y -= b.v; b.x += Math.sin(t * 3 + b.ph) * .4; bx.beginPath(); bx.arc(b.x, b.y, b.r, 0, Math.PI * 2); bx.stroke(); }
+    if (!reduce && Math.random() < .04) bubbles.push({x:Math.random() * W, y:H * .99, r:1.5 + Math.random() * 3, v:.4 + Math.random() * .7, ph:Math.random() * 6});
+    wave({y:.9, a:16, l:520, s:-.45, c:'rgba(10,166,160,.18)'});
+    wave({y:.95, a:10, l:360, s:.8, c:'rgba(7,112,122,.2)'});
+    // kingfish leap on a catch
+    leaps = leaps.filter((l) => l.t <= 1.15);
+    for (const l of leaps) {
+      l.t += .012; const p = Math.min(1, l.t), sea = H * .86;
+      const x = l.x0 + l.dir * p * 260, y = sea - Math.sin(p * Math.PI) * Math.min(300, H * .38);
+      const dx = l.dir * 260, dy = -Math.cos(p * Math.PI) * Math.PI * Math.min(300, H * .38), ang = Math.atan2(l.dir * dy, Math.abs(dx));
+      if (p < 1) drawFishAt(x, y, 34, l.dir, ['#9AD8E6', '#F5C531'], Math.sin(l.t * 30) * 6, ang);
+      if (Math.abs(p - .02) < .013 || Math.abs(p - .98) < .013) for (let i = 0; i < 26; i++) { const a = -Math.PI / 2 + (Math.random() - .5) * 1.6; splash.push({x, y:sea, vx:Math.cos(a) * 3.5, vy:Math.sin(a) * (3 + Math.random() * 4), life:1}); }
+    }
+    splash = splash.filter((s) => s.life > 0);
+    bx.fillStyle = '#FFFFFF';
+    for (const s of splash) { s.x += s.vx; s.y += s.vy; s.vy += .25; s.life -= .03; bx.globalAlpha = Math.max(0, s.life); bx.beginPath(); bx.arc(s.x, s.y, 3, 0, Math.PI * 2); bx.fill(); }
+    bx.globalAlpha = 1;
+    parts = parts.filter((p) => p.life > 0);
+    for (const p of parts) { p.x += p.vx; p.y += p.vy; p.vy += .22; p.vx *= .99; p.r += .2; p.life -= .012; bx.globalAlpha = Math.max(0, p.life); bx.save(); bx.translate(p.x, p.y); bx.rotate(p.r); bx.fillStyle = p.c; bx.fillRect(-4, -2.5, 8, 5); bx.restore(); }
+    bx.globalAlpha = 1;
+  }
+
+  // sun ring
+  const rc = $('#reactor'), rx = rc.getContext('2d');
+  let reactorVal = 0, reactorTarget = 0, spin = 0;
+  function drawReactor() {
+    reactorVal += (reactorTarget - reactorVal) * .08; spin += reduce ? 0 : .004;
+    const w = rc.width, cx = w / 2, R = w * .38;
+    rx.clearRect(0, 0, w, w);
+    rx.save(); rx.translate(cx, cx); rx.rotate(spin);
+    for (let i = 0; i < 16; i++) { rx.rotate(Math.PI * 2 / 16); rx.fillStyle = i % 2 ? 'rgba(255,179,33,.55)' : 'rgba(255,179,33,.9)'; rx.beginPath(); rx.moveTo(R + 26, -7); rx.lineTo(R + (i % 2 ? 44 : 54), 0); rx.lineTo(R + 26, 7); rx.closePath(); rx.fill(); }
+    rx.restore();
+    rx.save(); rx.translate(cx, cx);
+    rx.fillStyle = '#FFFFFF'; rx.beginPath(); rx.arc(0, 0, R + 16, 0, Math.PI * 2); rx.fill();
+    rx.lineWidth = 26; rx.lineCap = 'round'; rx.strokeStyle = '#D2F4EE';
+    rx.beginPath(); rx.arc(0, 0, R, 0, Math.PI * 2); rx.stroke();
+    if (reactorVal > .003) {
+      const gr = rx.createLinearGradient(-R, -R, R, R);
+      gr.addColorStop(0, '#0AA6A0'); gr.addColorStop(.6, '#3CD3A8'); gr.addColorStop(1, '#FFB321');
+      rx.strokeStyle = reactorVal >= .999 ? '#16924F' : gr;
+      rx.beginPath(); rx.arc(0, 0, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, reactorVal)); rx.stroke();
+    }
+    rx.restore();
+  }
+  seedScene();
+  function loop() { drawBg(); drawReactor(); requestAnimationFrame(loop); }
+  loop();
+
+  // voice briefing
+  function briefLines() {
+    const open = S.missions.filter((m) => !m.outcome);
+    const first = open[0];
+    const lines = [];
+    lines.push((S.brief && S.brief.voice) || ('Kia ora Weapon. ' + open.length + ' spots to fish today.'));
+    if (first) lines.push('First cast: ' + first.target + '. ' + (first.objective || ''));
+    return lines.map((text) => ({text, voice:'airy'}));
+  }
+  $('#voice').addEventListener('click', () => {
+    if (!S.tts) return;
+    if (S.speaking) { S.tts.stop().catch(() => {}); return; }
+    S.tts.speak(briefLines(), {rate:1.05}).catch((err) => { if (err && err.code === 'not_granted') $('#voice').hidden = true; });
+  });
+
+  // ---------- Julia console ----------
+  const LOC = '0MrWzbhZSHi80cXHkvho', FINN_USER = 'HwJUTEDTuTMSTd0VXDxe';
+  const MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+  const TAGS = {january:'d   -  follow up january', august:'d  - follow up august', october:'d - follow up october'};
+  const tagFor = (mName) => TAGS[mName] || ('d  -  follow up ' + mName);
+  Object.assign(S, {about:null, items:[], pending:{}, busy:false, ctl:null, sample:null, dict:null, mcp:null, voiceReplies:false, chatLoaded:false});
+  let saveChain = Promise.resolve();
+
+  const nzDate = () => new Date().toLocaleDateString('en-NZ', {timeZone:'Pacific/Auckland', weekday:'short', day:'numeric', month:'short', year:'numeric'});
+  const nzISO = () => new Date().toLocaleDateString('en-CA', {timeZone:'Pacific/Auckland'});
+
+  function renderAbout() {
+    const m = S.about && S.missions.find((x) => x.id === S.about);
+    $('#about').innerHTML = m ? 'About <button data-unabout="1" aria-label="Clear target">' + esc(m.target) + ' ✕</button>' : '';
+    $('#jin').placeholder = m ? 'What happened with ' + m.target + '? Type it or hit the mic.' : 'Tell Julia what happened. "Jamie said he\'ll pay Friday, wants gutters on the site."';
+  }
+
+  function renderLog() {
+    const el = $('#log');
+    if (!S.items.length) {
+      el.innerHTML = '<div class="msg ai"><span class="who">Julia</span>Kia ora handsome. Tell me how each call goes and I\'ll sort the CRM, the notes and the follow-ups. And Weapon? No new leads in weeks. We\'re fixing that today.</div>';
+      return;
+    }
+    el.innerHTML = S.items.map((it, i) => {
+      if (it.k === 'me') return '<div class="msg me"><span class="who">You</span>' + esc(it.text) + '</div>';
+      if (it.k === 'ai') return '<div class="msg ai"><span class="who">Julia</span>' + esc(it.text || 'Thinking…') + (it.text ? '<button class="mini cp" data-cpmsg="' + i + '">Copy</button>' : '') + '</div>';
+      if (it.k === 'act') return '<div class="act">✓ ' + esc(it.text) + '</div>';
+      if (it.k === 'err') return '<div class="act err">! ' + esc(it.text) + '</div>';
+      if (it.k === 'park') {
+        const st = it.state || 'waiting';
+        const body = '<b>Park ' + esc(it.target) + ' until ' + esc(it.monthLabel) + '?</b><p>' + esc(it.reason || '') + '<br>Tags them, sets the opp to abandoned at $' + esc(it.code) + ' and books you a task for 1 ' + esc(it.monthLabel) + '.</p>';
+        const row = st === 'waiting' ? '<div class="row"><button class="go-btn" data-park="' + i + '">Park it</button><button class="mini" data-nopark="' + i + '">Not now</button></div>'
+          : '<div class="act' + (st === 'failed' ? ' err' : '') + '">' + (st === 'done' ? '✓ Parked in HighLevel' : st === 'running' ? 'Parking…' : st === 'failed' ? '! ' + esc(it.err || 'HighLevel refused it') : 'Left open') + '</div>';
+        return '<div class="confirm">' + body + row + '</div>';
+      }
+      return '';
+    }).join('');
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function push(item) { S.items.push(Object.assign({at:new Date().toISOString()}, item)); renderLog(); return S.items.length - 1; }
+
+  function saveChat() {
+    if (!S.db) return;
+    const items = S.items.slice(-80).map((x) => Object.assign({}, x));
+    saveChain = saveChain.then(() => S.db.doc('chat/log').set({items, updatedAt:new Date().toISOString()})).catch(() => {});
+  }
+
+  function mcpErr(e) {
+    const c = e && e.code;
+    if (c === 'needs_reauth') return 'HighLevel needs reconnecting: claude.ai Settings, Connectors.';
+    if (c === 'server_not_connected' || c === 'selection_required') return 'HighLevel is not connected for this page: claude.ai Settings, Connectors.';
+    if (c === 'not_in_manifest' || c === 'approval_required' || c === 'blocked_by_policy') return 'HighLevel access was not allowed for this page.';
+    if (c === 'tool_error') return 'HighLevel said no: ' + String(e.message || '').slice(0, 160);
+    if (c === 'server_unavailable') return 'HighLevel did not answer. It may or may not have saved, check before retrying.';
+    return 'HighLevel call failed (' + (c || 'unknown') + ').';
+  }
+  async function hl(operationId, params, reason) {
+    if (!S.mcp) throw new Error('HighLevel is not reachable from this view.');
+    try {
+      const r = await S.mcp.callTool('Highlevel', 'execute_operation', {operationId, locationId:LOC, params, idempotencyKey:'mc-' + operationId + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7), reason});
+      return r.payload;
+    } catch (e) { throw new Error(mcpErr(e)); }
+  }
+
+  const missionById = (id) => S.missions.find((x) => x.id === String(id));
+
+  const TOOLS = [
+    {name:'log_outcome', description:'Record how a call or task went on a mission card. Returns "ok". Use once per debrief.',
+      inputSchema:{type:'object', properties:{missionId:{type:'string'}, outcome:{type:'string', enum:['paid','yes','spoke','voicemail','later','nope','wrong','done']}, summary:{type:'string', description:'One line, what they said, in Finn\'s plain words'}, nextStep:{type:'string'}, followUp:{type:'string', description:'YYYY-MM-DD if a follow-up date was agreed'}}, required:['missionId','outcome','summary']},
+      async execute(i) {
+        const m = missionById(i.missionId); if (!m) throw new Error('No mission with id ' + i.missionId);
+        const out = OUT[String(i.outcome)] ? String(i.outcome) : 'spoke';
+        const patch = {outcome:out, doneAt:new Date().toISOString(), summary:String(i.summary || '').slice(0, 400), nextStep:String(i.nextStep || '').slice(0, 300), followUp:i.followUp ? String(i.followUp).slice(0, 10) : null};
+        await S.db.doc('missions/' + m.id).update(patch);
+        push({k:'act', text:OUT[out].flash + ' // ' + m.target + ' // +' + OUT[out].xp + ' XP'});
+        try { const r = await ladderStep(m, out); if (r) push({k:'act', text:'CRM: ' + r}); } catch (e) { push({k:'err', text:e.message}); }
+        setTimeout(() => flash(OUT[out]), 50);
+        return 'ok';
+      }},
+    {name:'add_crm_note', description:'Add a dated note to the contact in HighLevel (the CRM). Returns "saved". Keep it short and factual, no em dashes.',
+      inputSchema:{type:'object', properties:{missionId:{type:'string'}, note:{type:'string'}}, required:['missionId','note']},
+      async execute(i) {
+        const m = missionById(i.missionId); if (!m) throw new Error('No mission with id ' + i.missionId);
+        if (!m.contactId) throw new Error(m.target + ' has no HighLevel contact linked, so tell Finn to add the note by hand.');
+        await hl('create-note', {path:{contactId:m.contactId}, body:{body:nzISO() + ' (Mission Control): ' + String(i.note).slice(0, 1500)}}, 'Call debrief from Mission Control');
+        push({k:'act', text:'Note saved to HighLevel for ' + m.target});
+        return 'saved';
+      }},
+    {name:'propose_park', description:'Ask Finn to confirm parking a lead until a future month (they are not ready now). Finn clicks to confirm; returns "awaiting Finn". month is YYYY-MM.',
+      inputSchema:{type:'object', properties:{missionId:{type:'string'}, month:{type:'string'}, reason:{type:'string'}}, required:['missionId','month']},
+      async execute(i) {
+        const m = missionById(i.missionId); if (!m) throw new Error('No mission with id ' + i.missionId);
+        if (!m.contactId || !m.oppId) throw new Error(m.target + ' is not linked to HighLevel, so it cannot be parked from here.');
+        const mm = /^(\d{4})-(\d{2})$/.exec(String(i.month)); if (!mm) throw new Error('month must be YYYY-MM');
+        const y = +mm[1], mo = +mm[2]; if (mo < 1 || mo > 12) throw new Error('bad month');
+        const mName = MONTHS[mo - 1];
+        push({k:'park', missionId:m.id, target:m.target, year:y, month:mo, monthLabel:mName[0].toUpperCase() + mName.slice(1) + ' ' + y, code:String(y % 100).padStart(2, '0') + String(mo).padStart(2, '0'), reason:String(i.reason || '').slice(0, 300), state:'waiting'});
+        return 'awaiting Finn';
+      }},
+    {name:'snooze_mission', description:'Push a card off today without closing it: "later" (back later today), "tomorrow", "desk" (next desktop day, i.e. tomorrow), "week", or a YYYY-MM-DD date. Returns the date.',
+      inputSchema:{type:'object', properties:{missionId:{type:'string'}, until:{type:'string'}}, required:['missionId','until']},
+      async execute(i) {
+        const m = missionById(i.missionId); if (!m) throw new Error('No mission with id ' + i.missionId);
+        const u = String(i.until);
+        if (SNOOZE[u]) { await snooze(m.id, u); push({k:'act', text:m.target + (u === 'later' ? ' back on the list later today' : ' snoozed till ' + dayName(addDays(todayISO(), SNOOZE[u].days)))}); return u === 'later' ? 'later today' : addDays(todayISO(), SNOOZE[u].days); }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(u)) throw new Error('until must be later, tomorrow, desk, week or YYYY-MM-DD');
+        await S.db.doc('missions/' + m.id).update({snoozedUntil:u, laterToday:false});
+        push({k:'act', text:m.target + ' snoozed till ' + dayName(u)});
+        return u;
+      }},
+    {name:'read_crm_notes', description:'Read the HighLevel notes on a mission\'s contact, newest first (call attempts, "Client responded", Finn\'s notes). Returns up to 15.',
+      inputSchema:{type:'object', properties:{missionId:{type:'string'}}, required:['missionId']},
+      async execute(i) {
+        const m = missionById(i.missionId); if (!m) throw new Error('No mission with id ' + i.missionId);
+        if (!m.contactId) return 'not linked to HighLevel';
+        const r = await hl('get-all-notes', {path:{contactId:m.contactId}}, 'Read notes for a card rundown');
+        return ((r && r.notes) || []).slice(0, 15).map((n) => ({date:String(n.dateAdded).slice(0, 10), note:String(n.bodyText || '').slice(0, 200)}));
+      }},
+    {name:'search_gmail', description:'Search Finn\'s Gmail (Gmail search syntax, e.g. "to:bob@x.com OR from:bob@x.com" or a business name). Returns up to 8 threads with id, subject, date, from/to and snippet. Use it to find a client\'s site link, email address or what was last said.',
+      inputSchema:{type:'object', properties:{query:{type:'string'}}, required:['query']},
+      async execute(i) {
+        if (!S.mcp) throw new Error('Gmail is not reachable from this view.');
+        let r; try { r = await S.mcp.callTool('Gmail', 'search_threads', {query:String(i.query).slice(0, 300), pageSize:8, view:'THREAD_VIEW_SUMMARY'}); } catch (e) { throw new Error(mcpErr(e).replace(/HighLevel/g, 'Gmail')); }
+        const th = ((r.payload && r.payload.threads) || []).map((t) => { const m = (t.messages || [])[0] || {}; return {id:t.id, subject:m.subject, date:m.date, from:m.sender, to:m.toRecipients, snippet:String(m.snippet || '').slice(0, 220)}; });
+        return th.length ? th : 'no threads found';
+      }},
+    {name:'read_gmail_thread', description:'Read one Gmail thread by id (from search_gmail). Returns each message\'s date, sender, recipients and plain text (trimmed). Links like the client\'s site preview are in here.',
+      inputSchema:{type:'object', properties:{threadId:{type:'string'}}, required:['threadId']},
+      async execute(i) {
+        if (!S.mcp) throw new Error('Gmail is not reachable from this view.');
+        let r; try { r = await S.mcp.callTool('Gmail', 'get_thread', {threadId:String(i.threadId), messageFormat:'PLAIN_TEXT'}); } catch (e) { throw new Error(mcpErr(e).replace(/HighLevel/g, 'Gmail')); }
+        const msgs = ((r.payload && r.payload.messages) || []).slice(-6).map((m) => ({id:m.id, date:m.date, from:m.sender, to:m.toRecipients, subject:m.subject, text:String(m.plaintextBody || m.snippet || '').split(/\nOn .{5,80}wrote:/)[0].slice(0, 2500)}));
+        return msgs;
+      }},
+    {name:'save_gmail_draft', description:'Save a finished email as a draft in Finn\'s Gmail (never sends). Pass replyToMessageId (the id of the latest message in that client\'s thread, from read_gmail_thread) so it lands in the same thread, with subject "Re: <that subject>". Body is plain text ending with "Cheers," (his Gmail signature is added). Returns the draft link.',
+      inputSchema:{type:'object', properties:{to:{type:'string'}, subject:{type:'string'}, body:{type:'string'}, replyToMessageId:{type:'string'}}, required:['to','subject','body']},
+      async execute(i) {
+        if (!S.mcp) throw new Error('Gmail is not reachable from this view.');
+        const to = String(i.to).trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) throw new Error('to must be one email address');
+        if (/(https?:\/\/|www\.|\.pages\.dev|\.co\.nz\/|buy\.stripe)/i.test(String(i.body))) throw new Error('No links in the body: Gmail turns them into broken google.com redirects. Point to the link in the quoted email below instead (e.g. "your site is the Bespoke Welding Services link in my email below"). If no earlier email in the thread has that link, leave it out and tell Finn to paste it in himself.');
+        const input = {to:[to], subject:String(i.subject).slice(0, 200), body:String(i.body).replace(/\u2014/g, ',').slice(0, 4000), includeSignature:true};
+        if (i.replyToMessageId) input.replyToMessageId = String(i.replyToMessageId);
+        let r; try { r = await S.mcp.callTool('Gmail', 'create_draft', input); } catch (e) { throw new Error(mcpErr(e).replace(/HighLevel/g, 'Gmail')); }
+        push({k:'act', text:'Draft saved in Gmail to ' + to});
+        return (r.payload && r.payload.viewUrl) || 'saved';
+      }},
+    {name:'add_followup_task', description:'Book a follow-up task for Finn in HighLevel on the contact, due on a date (YYYY-MM-DD, NZ). Use for every future promise or date from a call. Returns "booked".',
+      inputSchema:{type:'object', properties:{missionId:{type:'string'}, title:{type:'string'}, due:{type:'string'}, details:{type:'string'}}, required:['missionId','title','due']},
+      async execute(i) {
+        const m = missionById(i.missionId); if (!m) throw new Error('No mission with id ' + i.missionId);
+        if (!m.contactId) throw new Error(m.target + ' is not linked to HighLevel.');
+        const due = String(i.due); if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) throw new Error('due must be YYYY-MM-DD');
+        const mo = +due.slice(5, 7);
+        const iso = new Date(due + 'T09:00:00' + ((mo >= 4 && mo <= 9) ? '+12:00' : '+13:00')).toISOString();
+        await hl('create-task', {path:{contactId:m.contactId}, body:{title:String(i.title).slice(0, 140), body:String(i.details || '').slice(0, 800), dueDate:iso, completed:false, assignedTo:FINN_USER}}, 'Follow-up from Mission Control');
+        push({k:'act', text:'Task booked for ' + dayName(due) + ': ' + String(i.title).slice(0, 80)});
+        return 'booked';
+      }},
+    {name:'mark_paid', description:'Tag the contact "paid" in HighLevel. A HighLevel workflow then moves their opportunity to Website Handover (Paid) as won. Use when Finn says a lead has paid or signed up. Returns "tagged".',
+      inputSchema:{type:'object', properties:{missionId:{type:'string'}}, required:['missionId']},
+      async execute(i) {
+        const m = missionById(i.missionId); if (!m) throw new Error('No mission with id ' + i.missionId);
+        if (!m.contactId) throw new Error(m.target + ' has no HighLevel contact linked, so tell Finn to tag them paid by hand.');
+        await hl('add-tags', {path:{contactId:m.contactId}, body:{tags:['paid']}}, 'Lead paid, from Mission Control');
+        push({k:'act', text:m.target + ' tagged paid. Moving to Website Handover (Paid).'});
+        return 'tagged';
+      }},
+    {name:'update_mission', description:'Change a mission card without closing it: a new objective, or a line of intel to add (e.g. "Form done, refund still to do"). Returns "ok".',
+      inputSchema:{type:'object', properties:{missionId:{type:'string'}, objective:{type:'string'}, addIntel:{type:'string'}, story:{type:'string', description:'The yarn: 2 to 4 short sentences in Finn\'s own Kiwi voice, what they do, the history with dates, where it stands'}, lastContact:{type:'string', description:'YYYY-MM-DD of the last real two-way contact'}, siteUrl:{type:'string'}, email:{type:'string'}, opener:{type:'string', description:'What Finn says when they pick up, casual Kiwi'}}, required:['missionId']},
+      async execute(i) {
+        const m = missionById(i.missionId); if (!m) throw new Error('No mission with id ' + i.missionId);
+        const patch = {};
+        if (i.objective) patch.objective = String(i.objective).slice(0, 300);
+        if (i.addIntel) patch.intel = (m.intel || []).concat(String(i.addIntel).slice(0, 200)).slice(-8);
+        if (i.story) patch.story = String(i.story).slice(0, 700);
+        if (i.lastContact && /^\d{4}-\d{2}-\d{2}$/.test(String(i.lastContact))) patch.lastContact = String(i.lastContact);
+        if (i.siteUrl && /^https:\/\//.test(String(i.siteUrl))) patch.siteUrl = String(i.siteUrl).slice(0, 300);
+        if (i.email && /@/.test(String(i.email))) patch.email = String(i.email).slice(0, 120);
+        if (i.opener) patch.opener = String(i.opener).slice(0, 400);
+        if (!Object.keys(patch).length) return 'nothing to change';
+        await S.db.doc('missions/' + m.id).update(patch);
+        push({k:'act', text:'Card updated: ' + m.target});
+        return 'ok';
+      }},
+    {name:'add_mission', description:'Add a new target card to today\'s queue (a new lead or a follow-up call Finn must make). Returns the new id.',
+      inputSchema:{type:'object', properties:{target:{type:'string'}, biz:{type:'string'}, objective:{type:'string'}, phone:{type:'string'}, intel:{type:'array', items:{type:'string'}}, kind:{type:'string', enum:['call','collect']}}, required:['target','objective']},
+      async execute(i) {
+        const id = 'm' + Date.now().toString(36);
+        const order = S.missions.reduce((a, x) => Math.max(a, x.order || 0), 0) + 1;
+        await S.db.doc('missions/' + id).set({order, kind:i.kind === 'collect' ? 'collect' : 'call', code:'T-' + String(order).padStart(2, '0'), target:String(i.target).slice(0, 80), biz:String(i.biz || '').slice(0, 120), phone:String(i.phone || ''), warmth:60, mrr:i.kind === 'collect' ? 0 : 100, intel:Array.isArray(i.intel) ? i.intel.slice(0, 6).map(String) : [], objective:String(i.objective).slice(0, 300), opener:'', links:[], outcome:null, addedBy:'jarvis'});
+        push({k:'act', text:'New target added: ' + i.target});
+        return id;
+      }}
+  ];
+
+  async function runPark(idx) {
+    const it = S.items[+idx]; if (!it || it.k !== 'park' || it.state !== 'waiting') return;
+    const m = missionById(it.missionId); if (!m) return;
+    it.state = 'running'; renderLog();
+    const tz = (it.month >= 4 && it.month <= 9) ? '+12:00' : '+13:00';
+    const due = new Date(it.year + '-' + String(it.month).padStart(2, '0') + '-01T09:00:00' + tz).toISOString();
+    try {
+      await hl('add-tags', {path:{contactId:m.contactId}, body:{tags:[tagFor(MONTHS[it.month - 1])]}}, 'Park lead');
+      await hl('update-opportunity', {path:{id:m.oppId}, body:{status:'abandoned', monetaryValue:+it.code}}, 'Park lead');
+      await hl('create-task', {path:{contactId:m.contactId}, body:{title:'Follow up ' + m.target + ' (' + (m.biz || '') + ') - ' + it.monthLabel, body:(m.summary || it.reason || 'Parked from Mission Control'), dueDate:due, completed:false, assignedTo:FINN_USER}}, 'Park lead');
+      it.state = 'done';
+      await S.db.doc('missions/' + m.id).update({outcome:m.outcome || 'later', parkedUntil:it.monthLabel, doneAt:m.doneAt || new Date().toISOString()});
+    } catch (e) { it.state = 'failed'; it.err = e.message; }
+    renderLog(); saveChat();
+  }
+
+  function contextBlock() {
+    const ms = S.missions.map((m) => ({id:m.id, target:m.target, biz:m.biz, kind:m.kind, email:m.email || null, siteUrl:m.siteUrl || null, phone:m.phone || null, objective:m.objective, outcome:m.outcome || null, crm:!!m.contactId, intel:(m.intel || []).slice(0, 4)}));
+    return 'You are Julia, Finn\'s offsider for Digital Growth in New Zealand ($100 + GST a month websites for tradies, no upfront cost, cancel anytime; Finn sells, Dan builds; site changes go through Finn\'s Google changes form). Call Finn "Weapon" (or "handsome" now and then). You are Julia: a Kiwi woman who grew up diving and pig hunting up north. Warm, quick, cheeky and a little flirty (a playful compliment or tease now and then, never crude or sexual), Kiwi slang where it fits (chur, sweet as, yeah nah, hard out), the odd fishing or hunting line when a deal lands or slips. You are ALSO his ruthless mentor: you hold him to the real numbers, name a slip as a choice he made, and do not let him hide in admin or tool-building when he should be on the phone. Praise wins fast, then push the next one. Only use numbers you were given. Finn prospects (loading new leads) on his office desktop; on laptop days he works the existing pipeline, so a snooze of prospecting to his desk day is fair, a snooze of a hot call is not. Never sound like a corporate assistant or an AI: no "Certainly", no "I\'d be happy to", no bullet lists. Reply in 1 to 3 short sentences. No em dashes.\n\n' +
+      'Finn hates manual busywork. Never tell him to diarise, remind himself, or do anything you can do with a tool: do it. Act on short updates without follow-up questions. When Finn tells you about a CALL (any call, answered or not): 1) work out which mission it is (the "about" hint wins), 2) ALWAYS call log_outcome so the card closes for today: paid if they paid, yes if they agreed to go ahead or gave a go-live date, spoke if they answered but no decision, later if they want contact another time, voicemail if no answer, nope if not interested; put what they said in summary and the next step in nextStep, 3) if they paid, also call mark_paid, 4) call add_crm_note with a short factual note, 5) for every future date or promise they mention (changes coming, go-live date, a callback, another business to help), call add_followup_task with a due date, 6) if they want no contact for months, call propose_park instead, 7) if they asked for site changes, give the exact text for Dan\'s changes form, 8) if Finn needs to call someone new, call add_mission. For a TASK card (not a call): if fully done call log_outcome done; if only part is done call update_mission with what is left. If Finn wants to push something to later today, tomorrow, his desk day or another date, call snooze_mission. When Finn asks to be FILLED IN on a card: read_crm_notes and search_gmail/read_gmail_thread for that client, then call update_mission with story (2 to 4 short sentences in Finn\'s own Kiwi voice: what they do, what happened with dates, where it stands, e.g. "Morne runs mobile line boring... You rang him 14 Oct..."), lastContact, siteUrl, email and a casual opener; this does not close the card. Otherwise, every message about a card must end with that card OFF today\'s list: log_outcome, snooze_mission (default "tomorrow" when waiting on someone else, like Dan), or propose_park. Before booking a task, check the [done: ...] lines in the history so you never book the same thing twice. Then confirm in one or two sentences what you changed. Only state facts Finn told you. If he is just chatting, answer briefly and keep him moving; mention the Koh Samui move (January 2027) only when it fits.\n\n' +
+      'Business facts: Stripe sign-up link for the $100 + GST a month plan: https://buy.stripe.com/bIYeWO5V43Kt7qo28g . New sites are previewed on links like <name>.pages.dev or sites.leadconnectorhq.com/preview/...; find the client\'s link in Gmail (search_gmail then read_gmail_thread) or on the mission card (siteUrl). For a domain, suggest <businessname>.co.nz and say "we\'ll register it for you" (add nz if the plain one is likely taken). Go-live takes about 24 hours after payment.\n' +
+      'When Finn asks you to WRITE AN EMAIL or text: never leave placeholders. Use the mission\'s email/siteUrl, or search Gmail for the client to get their address and site link, then write the finished email and ALWAYS save it with save_gmail_draft, replying to the latest message in their thread (replyToMessageId) that contains the site or payment link. Never put URLs in the email body (Gmail mangles them into google.com redirects): refer to the link in the quoted email below, by its label, e.g. "your site is the Everyday Services link in my email below". A domain name you are offering (like everydayservicesnz.co.nz) is fine as plain words. Show the email in your reply too. Finn\'s style: casual Kiwi, short lines, no em dashes, no Oxford comma, under 120 words, ending "Cheers," (his signature follows). Never send email yourself, only drafts.\n' +
+      'Today in NZ: ' + nzDate() + ' (' + nzISO() + ').\nLead pipeline facts: ' + ((S.brief && S.brief.drought && S.brief.drought.facts) || 'unknown') + '\nMissions: ' + JSON.stringify(ms);
+  }
+
+  document.addEventListener('submit', (e) => {
+    const f = e.target.closest('form[data-say]'); if (!f) return;
+    e.preventDefault();
+    const inp = f.querySelector('input'); const text = inp.value.trim(); if (!text || S.busy) return;
+    inp.value = ''; S.about = f.dataset.say; renderAbout();
+    sendMsg(text);
+    $('#log').scrollIntoView({behavior: reduce ? 'auto' : 'smooth', block:'center'});
+  });
+
+  async function sendMsg(given, opts) {
+    opts = opts || {};
+    if (S.busy) { if (S.ctl) S.ctl.abort(); return; }
+    const ta = $('#jin'); const text = (typeof given === 'string' ? given : ta.value).trim(); if (!text) return;
+    if (S.dict && S.dict.active()) { try { await S.dict.stop(); } catch (e) {} }
+    const about = S.about && missionById(S.about);
+    if (typeof given !== 'string') ta.value = '';
+    $('#partial').textContent = '';
+    push({k:'me', text, about: about ? about.id : null});
+    if (!S.sample) {
+      push({k:'act', text:'Saved for later. Julia can\'t think in this view, open the page in claude.ai.'});
+      saveChat(); return;
+    }
+    const turns = [{role:'user', content:contextBlock()}];
+    const hist = [];
+    S.items.slice(0, -1).forEach((x) => {
+      if (x.k === 'me' && x.text) hist.push({role:'user', content:x.text});
+      else if (x.k === 'ai' && x.text) hist.push({role:'assistant', content:x.text});
+      else if ((x.k === 'act' || x.k === 'err') && hist.length && hist[hist.length - 1].role === 'assistant') hist[hist.length - 1].content += '\n[' + (x.k === 'act' ? 'done: ' : 'failed: ') + x.text + ']';
+    });
+    hist.slice(-14).forEach((t) => turns.push(t));
+    if (turns.length > 1 && turns[1].role === 'assistant') turns.splice(1, 1);
+    turns.push({role:'user', content:(about ? '[About mission ' + about.id + ': ' + about.target + ']\n' : '') + text});
+    const ai = push({k:'ai', text:''});
+    S.busy = true; S.ctl = new AbortController(); setBusy();
+    try {
+      const res = await S.sample(turns, {tools:TOOLS, modelTier:(opts.research || /\b(email|e-mail|text|write|draft|message|reply)\b/i.test(text)) ? 'default' : 'quick', signal:S.ctl.signal, onText:({text:t}) => { S.items[ai].text = t; renderLog(); }});
+      S.items[ai].text = res.text;
+      if (S.voiceReplies && S.tts) S.tts.speak(res.text.slice(0, 1900), {voice:'airy', rate:1.05}).catch(() => {});
+    } catch (e) {
+      S.items[ai].text = e && e.text ? e.text : '';
+      if (!S.items[ai].text) S.items.splice(ai, 1);
+      const c = e && e.code;
+      if (c !== 'cancelled') push({k:'err', text: c === 'not_granted' || c === 'sampling_disabled' ? 'Julia isn\'t switched on yet: the Anthropic key needs adding in Vercel. Your message is saved.' : c === 'rate_limited' ? 'Julia is rate limited. Give her a minute.' : c === 'tools_unavailable' ? 'This view cannot run Julia\'s tools. Open the page in claude.ai.' : 'Julia dropped the line. Your message is saved, try again.'});
+    } finally {
+      S.busy = false; S.ctl = null; setBusy();
+      const am = about && missionById(about.id);
+      if (!opts.research && am && !am.outcome && !(am.snoozedUntil && am.snoozedUntil >= todayISO())) {
+        try { await snooze(am.id, 'tomorrow'); push({k:'act', text:am.target + ' dealt with, off the list till tomorrow'}); } catch (e) {}
+      }
+      if (!opts.research && am && (am.outcome || am.snoozedUntil)) { const nx = pickNext(); if (nx) { S.sel = nx.id; S.about = nx.id; renderAbout(); render(); } }
+      renderLog(); saveChat();
+    }
+  }
+  function setBusy() { $('#send').textContent = S.busy ? 'Stop' : 'Send'; $('#orb').classList.toggle('busy', S.busy); }
+
+  $('#send').addEventListener('click', () => sendMsg());
+  $('#jin').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendMsg(); } });
+  $('#voice-replies').addEventListener('click', (e) => { S.voiceReplies = !S.voiceReplies; e.currentTarget.setAttribute('aria-pressed', String(S.voiceReplies)); });
+  $('#mic').addEventListener('click', () => {
+    const d = S.dict; if (!d) return;
+    if (d.active()) { d.stop().catch(() => {}); return; }
+    d.start({language:'en-NZ'}).catch((err) => {
+      const c = err && err.code;
+      if (c === 'not_granted' || c === 'unavailable') { $('#mic').hidden = true; push({k:'err', text:'Microphone not available here. Type it instead.'}); }
+      else if (c !== 'stopped' && c !== 'dismissed') push({k:'err', text:'Mic failed to start, try again.'});
+    });
+  });
+
+  renderLog(); renderAbout();
+  render();
+
+  // capabilities
+  const use = (n) => (window.claude && typeof window.claude.use === 'function' ? window.claude.use(n).catch(() => null) : Promise.resolve(null));
+  // ---------- tabs: Today / Business / Life ----------
+  const TAB_IDS = ['today', 'business', 'life'];
+  const loaded = {};
+  function showTab(id) {
+    if (!TAB_IDS.includes(id)) id = 'today';
+    TAB_IDS.forEach((t) => { $('#tab-' + t).hidden = t !== id; });
+    document.querySelectorAll('.tabbtn').forEach((b) => b.setAttribute('aria-current', b.dataset.tab === id ? 'page' : 'false'));
+    try { localStorage.setItem('mc:tab', id); } catch (e) {}
+    if (id === 'business' && !loaded.business) loadBusiness();
+    if (id === 'life' && !loaded.life) loadLife();
+  }
+  document.querySelectorAll('.tabbtn').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
+  $('#biz-refresh').addEventListener('click', () => loadBusiness());
+  $('#life-refresh').addEventListener('click', () => loadLife());
+
+  const daysBetween = (a, b) => Math.round((new Date(b + 'T12:00:00Z') - new Date(String(a).slice(0, 10) + 'T12:00:00Z')) / 864e5);
+  const setTxt = (sel, v) => { const el = $(sel); if (el) el.textContent = v; };
+  const whenMcp = () => new Promise((res) => { const t0 = Date.now(); (function w() { if (S.mcp || Date.now() - t0 > 12000) res(S.mcp); else setTimeout(w, 300); })(); });
+
+  // Business: Stripe MRR, HighLevel pipeline counts and lead flow, live.
+  const DG = 'VZAYfcSoTjFR7SY6XnYT';
+  const STAGES = [['Successful contact', 'dd6fec3f-05f6-49b6-8236-1d88289d007b'], ['Design being made', '3e3546aa-5ab7-44c9-aa38-10e659145be1'], ['Website sent', '372e1ba1-90ed-452d-8f39-1eb498d3d3cc'], ['They\'ve seen it', '476a18a2-eb18-45a0-a998-bc3f60ceddcf'], ['Making changes', '0b6860e8-9130-4df3-a9b1-b9cda84ba438']];
+  async function loadBusiness() {
+    loaded.business = true;
+    const mcp = await whenMcp();
+    if (!mcp) { $('#b-pipe').innerHTML = '<div class="empty">Open this in claude.ai to load live numbers.</div>'; return; }
+    // Stripe
+    (async () => {
+      try {
+        let subs = [], after = null;
+        for (let page = 0; page < 4; page++) {
+          const params = {status:'active', limit:100}; if (after) params.starting_after = after;
+          const r = await mcp.callTool('Stripe', 'stripe_api_read', {stripe_api_operation_id:'GetSubscriptions', stripe_context:'acct_1OsYbLFIpDdSpbxO', livemode:true, parameters:params});
+          const p = r.payload || {}; const data = p.data || [];
+          subs = subs.concat(data);
+          if (!p.has_more || !data.length) break; after = data[data.length - 1].id;
+        }
+        let cents = 0;
+        subs.forEach((sub) => ((sub.items && sub.items.data) || []).forEach((it) => {
+          const pr = it.price || it.plan || {}; const amt = (pr.unit_amount != null ? pr.unit_amount : pr.amount) || 0;
+          const iv = (pr.recurring && pr.recurring.interval) || pr.interval || 'month', n = (pr.recurring && pr.recurring.interval_count) || pr.interval_count || 1;
+          const perMonth = iv === 'year' ? amt / (12 * n) : iv === 'week' ? amt * 52 / 12 / n : iv === 'day' ? amt * 365 / 12 / n : amt / n;
+          cents += perMonth * (it.quantity || 1);
+        }));
+        setTxt('#b-mrr', money(cents / 100)); setTxt('#b-mrr-sub', money(cents / 115) + ' ex GST, live from Stripe');
+        setTxt('#b-subs', String(subs.length));
+        const toGo = Math.max(0, 0); setTxt('#b-goal', 'You\'re on ' + money(cents / 115) + ' a month ex GST from ' + subs.length + ' paying clients. Every new one is about $100 more toward Koh Samui.');
+      } catch (e) { setTxt('#b-mrr', 'n/a'); setTxt('#b-mrr-sub', e && e.code === 'not_in_manifest' ? 'Allow Stripe for this page' : 'Stripe did not answer'); }
+    })();
+    // HighLevel lead flow
+    (async () => {
+      try {
+        const r = await hl('search-opportunity', {query:{pipelineId:DG, status:'all', order:'added_desc', limit:40}}, 'Lead flow for the dashboard');
+        const ops = (r && r.opportunities) || [], t = todayISO();
+        const week = ops.filter((o) => daysBetween(o.createdAt, t) <= 7).length;
+        const last = ops[0] && String(ops[0].createdAt).slice(0, 10);
+        setTxt('#b-new', String(week)); setTxt('#b-new-sub', week ? 'new opportunities this week' : 'nothing new this week');
+        if (last) { const d = daysBetween(last, t); setTxt('#b-dry', String(d)); setTxt('#b-dry-sub', 'days since a new lead (' + dayName(last) + ')'); }
+      } catch (e) { setTxt('#b-new', 'n/a'); setTxt('#b-dry', 'n/a'); }
+    })();
+    // pipeline by stage
+    try {
+      const counts = await Promise.all(STAGES.map(async ([label, id]) => {
+        const r = await hl('search-opportunity', {query:{pipelineId:DG, pipelineStageId:id, status:'open', limit:1}}, 'Pipeline count');
+        return [label, (r && r.meta && r.meta.total) || 0];
+      }));
+      const max = Math.max(1, ...counts.map((c) => c[1]));
+      $('#b-pipe').innerHTML = counts.map(([l, n]) => '<div class="prow"><span>' + esc(l) + '</span><span class="bar"><i style="width:' + Math.round(n / max * 100) + '%"></i></span><b class="num">' + n + '</b></div>').join('');
+    } catch (e) { $('#b-pipe').innerHTML = '<div class="empty">' + esc(e.message || 'HighLevel did not answer') + '</div>'; }
+  }
+
+  // Life: streaks, water, checklist, steps and food from the app_state rows.
+  const SUPA = 'ykckjimuhtrpxeqcddtv';
+  function sqlRows(payload) {
+    const t = typeof payload === 'string' ? payload : (payload && payload.result) ? payload.result : JSON.stringify(payload || '');
+    const m = String(t).match(/<untrusted-data-[^>]*>\s*([\s\S]*?)\s*<\/untrusted-data/);
+    const body = m ? m[1] : String(t);
+    try { return JSON.parse(body); } catch (e) { const a = body.indexOf('['), b = body.lastIndexOf(']'); return a >= 0 ? JSON.parse(body.slice(a, b + 1)) : []; }
+  }
+  async function sql(query) {
+    const mcp = await whenMcp(); if (!mcp) throw new Error('Open this in claude.ai to load your life data.');
+    try { const r = await mcp.callTool('Supabase', 'execute_sql', {project_id:SUPA, query}); return sqlRows(r.payload); }
+    catch (e) { throw new Error(e && e.code === 'not_in_manifest' ? 'Allow Supabase for this page (Permissions).' : (e && e.message) || 'Supabase did not answer'); }
+  }
+  async function loadLife() {
+    loaded.life = true;
+    const t = todayISO();
+    setTxt('#l-date', dayName(t));
+    const xmas = daysBetween(t, '2026-12-25'); setTxt('#l-xmas', String(Math.max(0, xmas))); setTxt('#l-samui', 'days to go. Koh Samui: ' + Math.max(0, daysBetween(t, '2027-01-15')) + ' days');
+    try {
+      const rows = await HQ.lifeRows();
+      const by = {}; (rows || []).forEach((r) => { by[r.key] = typeof r.data === 'string' ? JSON.parse(r.data) : r.data; });
+      const st = (by.streaks && by.streaks['streaks:v1']) || {}, slips = st.slips || {}, start = st.start || {};
+      const streak = (k) => { const list = (slips[k] || []).slice().sort(); const last = list[list.length - 1] || start[k] || start.alcohol || '2026-08-29'; return Math.max(0, daysBetween(last, t)); };
+      setTxt('#l-alc', String(streak('alcohol'))); setTxt('#l-nic', String(streak('nicotine'))); setTxt('#l-ig', String(streak('instagram')));
+      const w = (by.health && by.health.po_water_v1 && by.health.po_water_v1.logs && by.health.po_water_v1.logs[t]) || 0; setTxt('#l-water', String(w));
+      const g = (by.goals && by.goals['goals:daily'] && by.goals['goals:daily'][t]) || {}; const gn = Object.values(g).filter(Boolean).length;
+      setTxt('#l-goals', gn + '/6'); setTxt('#l-goals-sub', gn ? Object.keys(g).filter((k) => g[k]).join(', ') : 'nothing ticked yet');
+      const days = (by.apple_health && by.apple_health.days) || {}; const sk = Object.keys(days).sort(); const lastDay = sk[sk.length - 1];
+      setTxt('#l-steps', lastDay ? Number(days[lastDay].steps || 0).toLocaleString('en-NZ') : 'n/a'); setTxt('#l-steps-sub', lastDay ? (lastDay === t ? 'today' : 'last synced ' + dayName(lastDay)) : 'not synced');
+      const fl = (by.food && by.food['food:logs']) || []; const dayStart = new Date(t + 'T00:00:00' + ((+t.slice(5, 7) >= 4 && +t.slice(5, 7) <= 9) ? '+12:00' : '+13:00')).getTime();
+      setTxt('#l-food', String(fl.filter((f) => f.ts >= dayStart && f.ts < dayStart + 864e5).length));
+      setTxt('#l-hint', '');
+    } catch (e) { setTxt('#l-hint', e.message); }
+  }
+  $('#l-water-add').addEventListener('click', async () => {
+    const t = todayISO();
+    try { await HQ.bumpWater(t); toast('Bottle logged. Good as gold.'); loadLife(); }
+    catch (e) { toast(e.message); }
+  });
+  $('#l-food-form').addEventListener('submit', async (e) => {
+    e.preventDefault(); const inp = $('#l-food-in'); const txt = inp.value.trim().slice(0, 120); if (!txt) return;
+    const safe = txt.replace(/'/g, "''");
+    try { await HQ.addFood(txt); inp.value = ''; toast('Logged: ' + txt); loadLife(); }
+    catch (err) { toast(err.message); }
+  });
+  (function () { let h = (location.hash || '').replace('#', ''); if (!TAB_IDS.includes(h)) { try { h = localStorage.getItem('mc:tab') || 'today'; } catch (e) { h = 'today'; } } showTab(h); })();
+
+  // Live counts for the ntfy "Today's Spots" ping: the reminder server reads app_state.mission.
+  // Counts and a first name only, no contact details. Written only when the numbers change.
+  let brainLast = '', brainTimer = null;
+  function pushBrain() {
+    clearTimeout(brainTimer);
+    brainTimer = setTimeout(async () => {
+      if (!S.missions.length) return;
+      const open = S.missions.filter((m) => m.kind === 'call' && !m.outcome && !sleeping(m));
+      const nx = pickNext();
+      const sum = {date:todayISO(), callsLeft:open.length, stakeMonthly:open.reduce((a, m) => a + (m.mrr || 0), 0), next:nx && nx.kind === 'call' ? String(nx.target || '').split(' ')[0] : '', droughtDays:(S.brief && S.brief.drought && S.brief.drought.days) || null, xp:calc().xp};
+      const js = JSON.stringify(sum); if (js === brainLast) return;
+      try { await HQ.upsertKey('mission', sum); brainLast = js; } catch (e) {}
+    }, 2500);
+  }
+
+  // one batched permission ask at open, instead of a prompt per tool mid-call
+  use('permissions').then(async (pm) => {
+    if (!pm) return; S.perm = pm; $('#perms').hidden = false;
+    try { const st = await pm.state(); if (Object.values(st).some((v) => v === 'prompt')) await pm.request(); } catch (e) {}
+  });
+  $('#perms').addEventListener('click', () => { if (S.perm) S.perm.manage().catch(() => toast('Open the Permissions menu at the top of this page')); });
+  use('sample').then((s) => { S.sample = s; if (!s) $('#jhint').textContent = 'Julia can\'t think in this view. Messages still save. Open it in claude.ai for the full Julia.'; });
+  use('mcp').then((m) => { S.mcp = m; });
+  use('dictation').then((d) => {
+    if (!d) return; S.dict = d; $('#mic').hidden = false;
+    d.onFinal(({text}) => { const ta = $('#jin'); ta.value = ta.value ? ta.value + text : text.replace(/^\s+/, ''); $('#partial').textContent = ''; });
+    d.onPartial(({text}) => { $('#partial').textContent = text; });
+    d.onState(({state}) => { const on = state === 'listening' || state === 'starting'; $('#mic').dataset.on = on ? '1' : '0'; if (!on) $('#partial').textContent = ''; });
+  });
+  use('tts').then((t) => {
+    if (!t) return; S.tts = t; $('#voice').hidden = false; $('#voice-replies').hidden = false;
+    t.onState(({state}) => { S.speaking = state !== 'idle'; $('#voice').dataset.on = S.speaking ? '1' : '0'; $('#voice span').textContent = S.speaking ? 'Stop' : 'Brief me'; });
+  });
+  use('db').then((db) => {
+    if (!db) { S.state = 'nodb'; render(); return; }
+    S.db = db;
+    db.doc('brief/today').onSnapshot((snap) => { S.brief = snap.exists ? snap.data() : null; render(); }, () => {});
+    db.collection('missions').orderBy('order').onSnapshot((snap) => {
+      S.missions = snap.docs.map((d) => Object.assign({id:d.id}, d.data()));
+      S.state = 'ready'; render(); renderAbout(); pushBrain();
+    }, () => { S.state = 'ready'; render(); });
+    db.doc('chat/log').onSnapshot((snap) => {
+      if (S.busy || snap.metadata.hasPendingWrites) return;
+      const d = snap.exists ? snap.data() : null;
+      if (d && Array.isArray(d.items) && (!S.chatLoaded || d.items.length !== S.items.length)) { S.items = d.items.map((x) => Object.assign({}, x)); renderLog(); }
+      S.chatLoaded = true;
+    }, () => { S.chatLoaded = true; });
+    setTimeout(() => { if (S.state === 'loading') { S.state = 'ready'; render(); } }, 8000);
+  });
+})();
+</script>
+</body>
+</html>
